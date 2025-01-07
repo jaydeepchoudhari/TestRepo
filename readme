@@ -1,3 +1,9 @@
+ApacheLDAPConfig:Url	172.31.40.186
+ApacheLDAPConfig:Port	10389
+ApacheLDAPConfig:BindDn	uid=fedadmin,ou=system
+ApacheLDAPConfig:BindCredentials	As81myde!ptnewxef$$
+ApacheLDAPConfig:SearchBase	cn=entegraclients,cn=users,dc=sodexo,dc=com
+ApacheLDAPConfig:SearchFilter	(uid={0})
 
 package com.dukeenergy.formula.service.impl;
 
