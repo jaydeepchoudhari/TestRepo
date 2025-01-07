@@ -1,9 +1,6 @@
-ApacheLDAPConfig:Url	172.31.40.186
-ApacheLDAPConfig:Port	10389
-ApacheLDAPConfig:BindDn	uid=fedadmin,ou=system
-ApacheLDAPConfig:BindCredentials	As81myde!ptnewxef$$
-ApacheLDAPConfig:SearchBase	cn=entegraclients,cn=users,dc=sodexo,dc=com
-ApacheLDAPConfig:SearchFilter	(uid={0})
+ldap://namldap.nam.ent.duke-energy.com
+phE=RuSer@gUs74
+MobileSPAC@nam.ent.duke-energy.com
 
 package com.dukeenergy.formula.service.impl;
 
