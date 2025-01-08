@@ -1,0 +1,35 @@
+# Set LDAP server details
+$ldapServer = "<LDAP_Server_FQDN_or_IP>"
+$ldapPort = 389  # 389 for standard LDAP, 636 for LDAPS (SSL)
+$bindDN = "CN=<Your_Username>,OU=Users,DC=domain,DC=com"  # Full Distinguished Name (DN) of the user
+$password = "<Your_Password>"
+
+# Create a DirectorySearcher object
+Add-Type -TypeDefinition @"
+using System;
+using System.DirectoryServices;
+using System.DirectoryServices.Protocols;
+public class LDAPHelper {
+    public static bool Authenticate(string ldapServer, string bindDN, string password) {
+        try {
+            DirectoryEntry entry = new DirectoryEntry('LDAP://' + ldapServer, bindDN, password);
+            // Try to bind
+            object nativeObject = entry.NativeObject;
+            return true;  // If bind succeeds, return true
+        }
+        catch (Exception ex) {
+            return false;  // If bind fails, return false
+        }
+    }
+}
+"@ -Language CSharp
+
+# Call the function to authenticate
+$success = [LDAPHelper]::Authenticate($ldapServer, $bindDN, $password)
+
+# Output result
+if ($success) {
+    Write-Host "LDAP authentication successful."
+} else {
+    Write-Host "LDAP authentication failed."
+}
