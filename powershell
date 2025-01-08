@@ -1,0 +1,24 @@
+$ldapServer = "<LDAP_Server_FQDN_or_IP>"
+$ldapPort = 389  # 389 for non-SSL, 636 for SSL
+$bindDN = "CN=<Your_Username>,OU=Users,DC=domain,DC=com"  # Full distinguished name (DN)
+$password = "<Your_Password>"
+$ldapConnection = New-Object System.DirectoryServices.Protocols.LdapConnection($ldapServer)
+
+# Configure SSL if necessary
+if ($ldapPort -eq 636) {
+    $ldapConnection.SessionOptions.SecureSocketLayer = $true
+}
+
+# Create credentials object
+$cred = New-Object System.Net.NetworkCredential($bindDN, $password)
+
+# Try to bind to the LDAP server
+try {
+    $ldapConnection.AuthType = [System.DirectoryServices.Protocols.AuthType]::Basic
+    $ldapConnection.Bind($cred)
+    Write-Host "Connection and Authentication Successful"
+} catch {
+    Write-Host "Error: $_"
+} finally {
+    $ldapConnection.Dispose()
+}
