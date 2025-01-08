@@ -1,8 +1,8 @@
 # Set LDAP server details
-$ldapServer = "<LDAP_Server_FQDN_or_IP>"
+$ldapServer = "ldap://namldap.nam.ent.duke-energy.com"
 $ldapPort = 389  # 389 for standard LDAP, 636 for LDAPS (SSL)
-$bindDN = "CN=<Your_Username>,OU=Users,DC=domain,DC=com"  # Full Distinguished Name (DN) of the user
-$password = "<Your_Password>"
+$bindDN = "MobileSPAC@nam.ent.duke-energy.com"  # Full Distinguished Name (DN) of the user
+$password = "phE=RuSer@gUs74"
 
 # Create a DirectorySearcher object
 Add-Type -TypeDefinition @"
