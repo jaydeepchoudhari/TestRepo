@@ -1,0 +1,13 @@
+# Define LDAP server and port
+$ldapServer = "namldap.nam.ent.duke-energy.com"
+$port = 389  # Use 636 for LDAPS
+
+# Create a TcpClient to test the LDAP connection
+try {
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    $tcpClient.Connect($ldapServer, $port)
+    Write-Host "LDAP server is reachable on port $port." -ForegroundColor Green
+    $tcpClient.Close()
+} catch {
+    Write-Host "Failed to connect to LDAP server on port $port: $_" -ForegroundColor Red
+}
