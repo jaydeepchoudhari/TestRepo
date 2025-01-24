@@ -1,29 +1,6 @@
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.ldap.core.AttributesMapper;
-import org.springframework.ldap.core.LdapTemplate;
-import org.springframework.stereotype.Service;
+String searchBase = "ou=groups,dc=your,dc=domain"; // Replace with your group base DN
+        String filter = "(&(objectClass=groupOfNames)(cn=" + groupName + "))";
 
-import javax.naming.NamingException;
-import javax.naming.directory.Attributes;
-import java.util.List;
+        List<LdapUser> users = ldapTemplate.search(searchBase, filter, new LdapUserAttributesMapper());
 
-@Service
-public class LdapService {
-
-    @Autowired
-    private LdapTemplate ldapTemplate;
-
-    public List<String> getUsersInGroup(String groupName) {
-        String groupDn = "cn=" + groupName + ",ou=Groups,dc=example,dc=com"; // Adjust the DN based on your LDAP structure
-        return ldapTemplate.search(
-                groupDn,
-                "(objectClass=person)", // Search filter for users
-                new AttributesMapper<String>() {
-                    @Override
-                    public String mapFromAttributes(Attributes attrs) throws NamingException {
-                        return attrs.get("cn").get().toString(); // Fetch the 'cn' attribute for user names
-                    }
-                }
-        );
-    }
-}
+        return users;
