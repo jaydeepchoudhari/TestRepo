@@ -1,1 +1,19 @@
-SingleContextSource.doWithSingleContext(ldapTemplate.getContextSource(), (LdapOperationsCallback<Void>) operations -> {
+List<String> users = new ArrayList<>();
+        SingleContextSource.doWithSingleContext(
+                ldapTemplate.getContextSource(),
+                (LdapOperationsCallback<Void>) operations -> {
+                    String groupDn = "cn=" + groupName + ",ou=Groups,dc=example,dc=com"; // Adjust based on your LDAP structure
+                    List<String> groupUsers = ldapTemplate.search(
+                            groupDn,
+                            "(objectClass=person)", // Search for person objects
+                            new AttributesMapper<String>() {
+                                @Override
+                                public String mapFromAttributes(Attributes attrs) throws NamingException {
+                                    return attrs.get("cn").get().toString(); // Adjust to fetch the desired attribute
+                                }
+                            }
+                    );
+                    users.addAll(groupUsers);
+                    return null; // Void callback
+                }
+        );
