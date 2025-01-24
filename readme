@@ -1,6 +1,1 @@
-String searchBase = "ou=groups,dc=your,dc=domain"; // Replace with your group base DN
-        String filter = "(&(objectClass=groupOfNames)(cn=" + groupName + "))";
-
-        List<LdapUser> users = ldapTemplate.search(searchBase, filter, new LdapUserAttributesMapper());
-
-        return users;
+SingleContextSource.doWithSingleContext(ldapTemplate.getContextSource(), (LdapOperationsCallback<Void>) operations -> {
