@@ -1,4 +1,23 @@
-LdapQuery query = LdapQueryBuilder.query()
+import org.springframework.ldap.core.AttributesMapper;
+import org.springframework.ldap.core.LdapTemplate;
+import org.springframework.ldap.query.LdapQuery;
+import org.springframework.ldap.query.LdapQueryBuilder;
+import org.springframework.stereotype.Service;
+
+import javax.naming.directory.Attributes;
+import java.util.List;
+
+@Service
+public class LdapUserService {
+
+    private final LdapTemplate ldapTemplate;
+
+    public LdapUserService(LdapTemplate ldapTemplate) {
+        this.ldapTemplate = ldapTemplate;
+    }
+
+    public List<String> getUsersFromGroup(String groupName) {
+        LdapQuery query = LdapQueryBuilder.query()
                 .where("memberOf").is("cn=" + groupName + ",ou=groups,dc=example,dc=com");
 
         return ldapTemplate.search(query, new AttributesMapper<String>() {
@@ -7,3 +26,5 @@ LdapQuery query = LdapQueryBuilder.query()
                 return (String) attrs.get("cn").get();
             }
         });
+    }
+}
