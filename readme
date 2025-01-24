@@ -1,4 +1,20 @@
-String groupDn = "cn=" + groupName + ",ou=Groups,dc=example,dc=com"; // Adjust the DN based on your LDAP structure
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ldap.core.AttributesMapper;
+import org.springframework.ldap.core.LdapTemplate;
+import org.springframework.stereotype.Service;
+
+import javax.naming.NamingException;
+import javax.naming.directory.Attributes;
+import java.util.List;
+
+@Service
+public class LdapService {
+
+    @Autowired
+    private LdapTemplate ldapTemplate;
+
+    public List<String> getUsersInGroup(String groupName) {
+        String groupDn = "cn=" + groupName + ",ou=Groups,dc=example,dc=com"; // Adjust the DN based on your LDAP structure
         return ldapTemplate.search(
                 groupDn,
                 "(objectClass=person)", // Search filter for users
@@ -9,3 +25,5 @@ String groupDn = "cn=" + groupName + ",ou=Groups,dc=example,dc=com"; // Adjust t
                     }
                 }
         );
+    }
+}
