@@ -1,84 +1,11 @@
-ldap://namldap.nam.ent.duke-energy.com
-phE=RuSer@gUs74
-MobileSPAC@nam.ent.duke-energy.com
-
-package com.dukeenergy.formula.service.impl;
-
-import com.dukeenergy.formula.model.dto.EmployeeDTO;
-import com.dukeenergy.formula.service.LdapService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.ldap.control.PagedResultsDirContextProcessor;
-import org.springframework.ldap.core.AttributesMapper;
-import org.springframework.ldap.core.LdapTemplate;
-import org.springframework.ldap.core.support.LdapOperationsCallback;
-import org.springframework.ldap.core.support.SingleContextSource;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import javax.naming.directory.Attribute;
-import javax.naming.directory.SearchControls;
-import java.util.ArrayList;
-import java.util.List;
-
-@Service
-public class LdapServiceImpl implements LdapService {
-    @Autowired
-    LdapTemplate ldapTemplate;
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
-
-    private final int PAGE_SIZE = 1000;
-    private final String userBaseDN = "ou=Personal,ou=accounts,dc=nam,dc=ent,dc=duke-energy,dc=com";
-    private final String userFilter = "(&(objectClass=Person)&(objectClass=User)&(userAccountControl=512))";
-
-    @Transactional
-    @Override
-    public List<EmployeeDTO> getEmployees() {
-        /* Set up pagination. LDAP only allows 1000 records to be returned at a time. */
-        final SearchControls searchControls = new SearchControls();
-        searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-        final PagedResultsDirContextProcessor processor = new PagedResultsDirContextProcessor(PAGE_SIZE);
-
-        /* Since we are limited to 1000 results per query, we need to maintain a context so the next search
-        *  knows where to begin. */
-        List<EmployeeDTO> result = new ArrayList<>();
-        SingleContextSource.doWithSingleContext(ldapTemplate.getContextSource(), (LdapOperationsCallback<Void>) operations -> {
-            do {
-                List<EmployeeDTO> page = operations.search(
-                        userBaseDN,
-                        userFilter,
-                        searchControls,
-                        /* Anonymous mapping implementation for our DTO */
-                        (AttributesMapper<EmployeeDTO>) attributes -> {
-                            /* Handle employee ID */
-                            String employeeId = "";
-                            Attribute employeeIdAttribute = attributes.get("employeeID");
-                            Attribute uidNumberAttribute = attributes.get("uidNumber");
-                            if(employeeIdAttribute != null) {
-                                employeeId = employeeIdAttribute.get().toString();
-                            } else if(uidNumberAttribute != null){
-                                employeeId = uidNumberAttribute.get().toString();
-                            } else {
-                                logger.error("Could not map employee ID attribute from LDAP. There may be a new attribute.");
-                            }
-                            EmployeeDTO dto = new EmployeeDTO();
-                            dto = new EmployeeDTO(
-                                null,
-                                attributes.get("givenName").get().toString(),
-                                attributes.get("sn").get().toString(),
-                                attributes.get("sAMAccountName").get().toString(),
-                                employeeId,
-                                "Y"
-                            );
-                            return dto;
-                        },
-                        processor
-                );
-                result.addAll(page);
-            } while(processor.hasMore());
-            return null;
-        });
-        return result;
-    }
-}
+String groupDn = "cn=" + groupName + ",ou=Groups,dc=example,dc=com"; // Adjust the DN based on your LDAP structure
+        return ldapTemplate.search(
+                groupDn,
+                "(objectClass=person)", // Search filter for users
+                new AttributesMapper<String>() {
+                    @Override
+                    public String mapFromAttributes(Attributes attrs) throws NamingException {
+                        return attrs.get("cn").get().toString(); // Fetch the 'cn' attribute for user names
+                    }
+                }
+        );
