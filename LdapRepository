@@ -1,3 +1,4 @@
+https://github.com/e-gov/RIHA-Browser/blob/404f4e3f4357ae1a5146ce1e14d8c023a7221538/backend/src/main/java/ee/ria/riha/domain/LdapRepository.java#L45
 package ee.ria.riha.domain;
 
 import ee.ria.riha.conf.ApplicationProperties.LdapRepositoryProperties;
