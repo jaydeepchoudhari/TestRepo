@@ -119,3 +119,20 @@ public class LdapRepository {
                 .filter(filter);
     }
 }
+
+
+
+@Data
+@Entry(objectClasses = {"groupOfNames"})
+public class LdapGroup {
+
+    @Id
+    private Name dn;
+
+    @Attribute(name = "cn")
+    private String commonName;
+
+    @Attribute(name = "displayName")
+    private String displayName;
+
+}
