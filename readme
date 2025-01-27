@@ -1,30 +1,41 @@
-import org.springframework.ldap.core.AttributesMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ldap.core.LdapTemplate;
+import org.springframework.ldap.core.support.BaseLdapNameAware;
+import org.springframework.ldap.filter.AndFilter;
+import org.springframework.ldap.filter.EqualsFilter;
 import org.springframework.ldap.query.LdapQuery;
 import org.springframework.ldap.query.LdapQueryBuilder;
+import org.springframework.ldap.query.SearchScope;
+import org.springframework.ldap.support.LdapUtils;
 import org.springframework.stereotype.Service;
 
-import javax.naming.directory.Attributes;
+import javax.naming.Name;
+import javax.naming.ldap.LdapName;
 import java.util.List;
 
 @Service
 public class LdapUserService {
 
-    private final LdapTemplate ldapTemplate;
+    @Autowired
+    private LdapTemplate ldapTemplate;
 
-    public LdapUserService(LdapTemplate ldapTemplate) {
-        this.ldapTemplate = ldapTemplate;
-    }
+    public List<String> getUsersInGroup(String groupName) {
+        // Construct the query to find the group
+        LdapQuery groupQuery = LdapQueryBuilder.query()
+                .base("ou=groups")
+                .searchScope(SearchScope.SUBTREE)
+                .where("cn").is(groupName);
 
-    public List<String> getUsersFromGroup(String groupName) {
-        LdapQuery query = LdapQueryBuilder.query()
-                .where("memberOf").is("cn=" + groupName + ",ou=groups,dc=example,dc=com");
+        // Find the group DN
+        Name groupDn = ldapTemplate.searchForObject(groupQuery, ctx -> ctx.getDn());
 
-        return ldapTemplate.search(query, new AttributesMapper<String>() {
-            @Override
-            public String mapFromAttributes(Attributes attrs) {
-                return (String) attrs.get("cn").get();
-            }
-        });
+        // Construct the query to find users who are members of the group
+        LdapQuery userQuery = LdapQueryBuilder.query()
+                .base("ou=users")
+                .searchScope(SearchScope.SUBTREE)
+                .where("memberOf").is(groupDn);
+
+        // Search for users and return their CNs
+        return ldapTemplate.search(userQuery, ctx -> ctx.getStringAttribute("cn"));
     }
 }
