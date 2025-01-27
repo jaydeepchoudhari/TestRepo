@@ -141,3 +141,35 @@ public class LdapGroup {
     private String displayName;
 
 }
+
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ldap.query.LdapQuery;
+import org.springframework.ldap.query.LdapQueryBuilder;
+import org.springframework.stereotype.Service;
+
+import javax.naming.directory.Attributes;
+import java.util.List;
+
+@Service
+public class LdapService {
+
+    @Autowired
+    private LdapTemplate ldapTemplate;
+
+    public List<String> searchGroupByName(String groupName) {
+        // Define the base for searching groups
+        String groupSearchBase = "ou=Groups,dc=example,dc=com"; // Adjust to match your LDAP structure
+
+        // Create the LDAP query using LdapQueryBuilder
+        LdapQuery query = LdapQueryBuilder.query()
+                .base(groupSearchBase)
+                .filter("(cn=" + groupName + ")"); // Filter to find the group by name
+
+        // Execute the query and map the results
+        return ldapTemplate.search(query, (Attributes attrs) -> {
+            // Return the group name or any other attribute you need
+            return attrs.get("cn").get().toString(); // Adjust as necessary
+        });
+    }
+}
