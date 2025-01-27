@@ -173,3 +173,39 @@ public class LdapService {
         });
     }
 }
+
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ldap.query.LdapQuery;
+import org.springframework.ldap.query.LdapQueryBuilder;
+import org.springframework.stereotype.Service;
+
+import javax.naming.directory.Attributes;
+import java.util.List;
+
+@Service
+public class LdapService {
+
+    @Autowired
+    private LdapTemplate ldapTemplate;
+
+    private static final String MEMBER_OF_ATTRIBUTE = "memberOf";
+    private static final String ALL_NON_OPERATIONAL_ATTRIBUTES = "*";
+
+    public List<String> getUsersOfGroup(String groupName) {
+        // Define the base for searching users
+        String userSearchBase = "ou=Users,dc=example,dc=com"; // Adjust according to your LDAP structure
+
+        // Build the LDAP query to find users in the specified group
+        LdapQuery query = LdapQueryBuilder.query()
+                .base(userSearchBase)
+                .attributes(ALL_NON_OPERATIONAL_ATTRIBUTES, MEMBER_OF_ATTRIBUTE) // Include all attributes and 'memberOf'
+                .filter("(&(objectClass=person)(memberOf=cn=" + groupName + ",ou=Groups,dc=example,dc=com))");
+
+        // Execute the query and map the results
+        return ldapTemplate.search(query, (Attributes attrs) -> {
+            // Extract the user's common name (or other identifying attribute)
+            return attrs.get("cn").get().toString(); // Adjust the attribute as necessary
+        });
+    }
+}
