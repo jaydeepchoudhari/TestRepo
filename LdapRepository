@@ -210,3 +210,41 @@ public class LdapService {
         });
     }
 }
+
+
+import org.springframework.ldap.core.LdapTemplate;
+import org.springframework.ldap.query.LdapQuery;
+import org.springframework.stereotype.Service;
+import javax.naming.NamingException;
+import javax.naming.directory.Attributes;
+import static org.springframework.ldap.query.LdapQueryBuilder.query;
+
+@Service
+public class LdapGroupService {
+
+    private final LdapTemplate ldapTemplate;
+    private final String groupSearchBase = "ou=Groups,dc=example,dc=com";
+
+    // Constructor-based injection
+    public LdapGroupService(LdapTemplate ldapTemplate) {
+        this.ldapTemplate = ldapTemplate;
+    }
+
+    public CustomLdapGroup findGroupByDisplayName(String displayName) {
+        LdapQuery query = query()
+                .base(groupSearchBase)
+                .where("objectClass").is("groupOfNames")
+                .and("displayName").is(displayName);
+
+        return ldapTemplate.findOne(query, attributes -> {
+            try {
+                String cn = (attributes.get("cn") != null) ? attributes.get("cn").get().toString() : null;
+                String display = (attributes.get("displayName") != null) ? attributes.get("displayName").get().toString() : null;
+                return new CustomLdapGroup(display, cn);
+            } catch (NamingException e) {
+                throw new RuntimeException("Error mapping LDAP attributes", e);
+            }
+        });
+    }
+}
+
