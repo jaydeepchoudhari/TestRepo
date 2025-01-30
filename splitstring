@@ -1,25 +1,23 @@
-CREATE FUNCTION dbo.splitstring ( @stringToSplit VARCHAR(MAX) )
-RETURNS
- @returnList TABLE ([Name] [nvarchar] (500))
-AS
+DECLARE @EmployeeID VARCHAR(MAX) = '1,2,3,4'; -- Comma-separated string
+DECLARE @Delimiter CHAR(1) = ','; -- Delimiter
+DECLARE @Pos INT; -- Position of the delimiter
+DECLARE @CurrentID VARCHAR(10); -- Current EmployeeID being processed
+
+-- Remove leading/trailing spaces and ensure the string ends with a delimiter
+SET @EmployeeID = LTRIM(RTRIM(@EmployeeID)) + @Delimiter;
+
+-- Loop through the string
+WHILE CHARINDEX(@Delimiter, @EmployeeID) > 0
 BEGIN
+    -- Find the position of the next delimiter
+    SET @Pos = CHARINDEX(@Delimiter, @EmployeeID);
 
- DECLARE @name NVARCHAR(255)
- DECLARE @pos INT
+    -- Extract the current EmployeeID
+    SET @CurrentID = LTRIM(RTRIM(SUBSTRING(@EmployeeID, 1, @Pos - 1)));
 
- WHILE CHARINDEX(',', @stringToSplit) > 0
- BEGIN
-  SELECT @pos  = CHARINDEX(',', @stringToSplit)  
-  SELECT @name = SUBSTRING(@stringToSplit, 1, @pos-1)
+    -- Print the current EmployeeID (or perform other operations)
+    PRINT 'Processing EmployeeID: ' + @CurrentID;
 
-  INSERT INTO @returnList 
-  SELECT @name
-
-  SELECT @stringToSplit = SUBSTRING(@stringToSplit, @pos+1, LEN(@stringToSplit)-@pos)
- END
-
- INSERT INTO @returnList
- SELECT @stringToSplit
-
- RETURN
-END
+    -- Remove the processed EmployeeID from the string
+    SET @EmployeeID = SUBSTRING(@EmployeeID, @Pos + 1, LEN(@EmployeeID));
+END;
