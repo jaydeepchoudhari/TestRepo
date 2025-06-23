@@ -43,3 +43,11 @@ public String callDevApiOnBehalfOfUser(String userAccessToken) {
 
 
 com.microsoft.aad.msal4j.MsalInteractionRequiredException: AADSTS65001: The user or administrator has not consented to use the application with ID '2a318756-f3e6-4e01-8839-353d958262fa' named 'MOVES-Dev'. Send an interactive authorization request for this user and resource. Trace ID: b7fe26d3-a152-4456-9b2c-666f5db80400 Correlation ID: bfc1eaa3-5aea-4e55-b17c-c00b394ca15a Timestamp: 2025-06-19 18:47:14Z
+
+    https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/authorize?
+client_id=<MOVES-Dev-client-id>
+&response_type=code
+&redirect_uri=http://localhost
+&response_mode=query
+&scope=https://company.onmicrosoft.com/moves-qa-auth/.default
+&prompt=consent
