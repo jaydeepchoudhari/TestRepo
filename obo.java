@@ -51,3 +51,5 @@ client_id=<MOVES-Dev-client-id>
 &response_mode=query
 &scope=https://company.onmicrosoft.com/moves-qa-auth/.default
 &prompt=consent
+
+    http://localhost/?error=invalid_request&error_description=AADSTS9002325%3a+Proof+Key+for+Code+Exchange+is+required+for+cross-origin+authorization+code+redemption.+Trace+ID%3a+88419cf9-e04c-4a77-8424-b342ccd01100+Correlation+ID%3a+4d465c6a-b5b2-4ced-8910-9c55b772eda5+Timestamp%3a+2025-06-23+18%3a59%3a16Z
