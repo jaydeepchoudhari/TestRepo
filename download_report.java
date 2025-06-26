@@ -127,4 +127,27 @@ public class CustomerReportController {
         // Your implementation to get customer details
         return customerDetailsService.getAllCustomerDetails();
     }
+
+    private List<Customer> getCustomersByIds(short[] customerIds) {
+        List<Customer> allCustomers = customerService.getAllCustomers();
+        return allCustomers.stream()
+                .filter(c -> containsId(customerIds, c.getId()))
+                .collect(Collectors.toList());
+    }
+    
+    private List<CustomerDetails> getCustomerDetailsByIds(short[] customerIds) {
+        List<CustomerDetails> allDetails = customerDetailsService.getAllCustomerDetails();
+        return allDetails.stream()
+                .filter(d -> containsId(customerIds, d.getCustomerId()))
+                .collect(Collectors.toList());
+    }
+    
+    private boolean containsId(short[] ids, short targetId) {
+        for (short id : ids) {
+            if (id == targetId) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
