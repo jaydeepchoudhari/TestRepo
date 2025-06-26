@@ -150,4 +150,7 @@ public class CustomerReportController {
         }
         return false;
     }
+
+    @Query("SELECT cd FROM CustomerDetails cd WHERE cd.customerId IN :customerIds")
+    List<CustomerDetails> findByCustomerIds(@Param("customerIds") short[] customerIds);
 }
