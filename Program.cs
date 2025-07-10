@@ -3,7 +3,7 @@ using System.Net;
 
 namespace ConsoleApp2
 {
-    internal class Program
+    internal class Program 
     {
         static void Main(string[] args)
         {
