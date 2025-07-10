@@ -1,30 +1,38 @@
-CREATE SCHEMA IF NOT EXISTS "SolarHealth";
+create schema if not exists SolarHealth;
 
-CREATE TABLE "SolarHealth"."SOLAR_FARMS" (
-    "site_id" SERIAL PRIMARY KEY,
-    "site_name" VARCHAR(255),
-    "address" VARCHAR(255),
-    "active" BOOLEAN,
-    "Nickname" VARCHAR(255),
-    "current_state" INTEGER,
-    "geom" TEXT,
-    "panel_phototropic" BOOLEAN,
-    "Maximo_Site_Id" VARCHAR(255)
+create table SolarHealth.solar_farms (
+    site_id serial primary key,
+    site_name varchar(255),
+    address varchar(255),
+    active boolean,
+    nickname varchar(255),
+    current_state integer,
+    geom text,
+    panel_phototropic boolean,
+    maximo_site_id varchar(255),
+    created_by VARCHAR(255) NOT NULL,
+    created_ts TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_by VARCHAR(255),
+    modified_ts TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE "SolarHealth"."SOLAR_FARMS_PANELS" (
-    "id" SERIAL PRIMARY KEY,
-    "geom" TEXT,
-    "site_id" SMALLINT NOT NULL,
-    "panel_id" VARCHAR(255),
-    "inverter" VARCHAR(255),
-    "combiner" VARCHAR(255),
-    "string" VARCHAR(255),
-    CONSTRAINT "fk_solar_farm_panel" 
-        FOREIGN KEY ("site_id") 
-        REFERENCES "SolarHealth"."SOLAR_FARMS" ("site_id")
-        ON DELETE CASCADE
+create table SolarHealth.solar_farms_panels (
+    id serial primary key,
+    geom text,
+    site_id smallint not null,
+    panel_id varchar(255),
+    inverter varchar(255),
+    combiner varchar(255),
+    string varchar(255),
+    created_by VARCHAR(255) NOT NULL,
+    created_ts TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_by VARCHAR(255),
+    modified_ts TIMESTAMP WITH TIME ZONE
+    constraint fk_solar_farm_panel 
+        foreign key (site_id) 
+        references SolarHealth.solar_farms (site_id)
+        on delete cascade
 );
 
-CREATE INDEX "idx_solar_farms_panels_site_id" 
-    ON "SolarHealth"."SOLAR_FARMS_PANELS" ("site_id");
+create index idx_solar_farms_panels_site_id 
+    on SolarHealth.solar_farms_panels (site_id);
