@@ -1,5 +1,6 @@
-//Existing Opex Locations
-package com.dukeenergy.formula.model.entities;
+org.hibernate.LazyInitializationException: failed to lazily initialize a collection of role: com.dukeenergy.formula.model.entities.LocationEntity.buildings, could not initialize proxy - no Session
+
+    package com.dukeenergy.formula.model.entities;
 
 import lombok.Data;
 
@@ -48,7 +49,6 @@ public class LocationEntity {
     private Set<BuildingEntity> buildings;
 }
 
-//Existing buildings:
 
 package com.dukeenergy.formula.model.entities;
 
@@ -77,13 +77,3 @@ public class BuildingEntity {
     String locationId;
 }
 
-//Source of buildings
-
-package com.dukeenergy.formula.model.dto;
-
-public interface BuildingViewDTO {
-    String getSiteId();
-    String getBuildingId();
-    String getBuildingCode();
-    String getBuildingName();
-}
