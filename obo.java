@@ -1,41 +1,33 @@
-MERGE INTO dbo.ENTITY AS target
-USING dbo.LOCATIONS AS source
-ON target.site_id = source.site_id
-WHEN MATCHED THEN
-    UPDATE SET 
-        entity_name = source.site_name,
-        created_date = CASE WHEN target.created_date IS NULL THEN GETDATE() ELSE target.created_date END,
-        created_by = CASE WHEN target.created_by IS NULL THEN SYSTEM_USER ELSE target.created_by END
-WHEN NOT MATCHED BY TARGET THEN
-    INSERT (site_id, entity_name, created_date, created_by)
-    VALUES (source.site_id, source.site_name, GETDATE(), SYSTEM_USER);
+@Transactional
+    public void bulkInsert(List<LocationDTO> locations) {
+        int count = 0;
+        String sql = "INSERT INTO dbo.locations (uuid, site_id, deleted_ind, site_name, address_1, address_2, city, state_code, postal_code, county, created, created_by) " +
+                "VALUES (:uuid, :siteId, :deletedInd, :siteName, :address1, :address2, :city, :stateCode, :postalCode, :county, :created, :createdDate)";
 
+        for (LocationDTO location : locations) {
+            entityManager.createNativeQuery(sql)
+                    .setParameter("uuid", location.getUuid())
+                    .setParameter("siteId", location.getSiteId())
+                    .setParameter("siteName", location.getSiteName())
+                    .setParameter("address1", location.getAddress1())
+                    .setParameter("address2", location.getAddress2())
+                    .setParameter("city", location.getCity())
+                    .setParameter("stateCode", location.getStateCode())
+                    .setParameter("postalCode", location.getPostalCode())
+                    .setParameter("county", location.getCounty())
+                    .setParameter("created", location.getCreated())
+                    .setParameter("createdDate", location.getCreatedBy())
+                    .setParameter("deletedInd", location.getDeletedInd())
+                    .executeUpdate();
+            count++;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.transaction.Transactional;
+            if (count % BATCH_SIZE == 0) {
+                entityManager.flush();
+                entityManager.clear();
+            }
+        }
 
-public class EntityRepositoryCustomImpl implements EntityRepositoryCustom {
-
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    @Override
-    @Transactional
-    public void mergeEntitiesFromLocations() {
-        String mergeSql = 
-            "MERGE INTO ENTITY AS target " +
-            "USING LOCATIONS AS source " +
-            "ON target.site_id = source.site_id " +
-            "WHEN MATCHED THEN " +
-            "    UPDATE SET " +
-            "        target.entity_name = source.site_name, " +
-            "        target.created_date = CASE WHEN target.created_date IS NULL THEN GETDATE() ELSE target.created_date END, " +
-            "        target.created_by = CASE WHEN target.created_by IS NULL THEN SYSTEM_USER ELSE target.created_by END " +
-            "WHEN NOT MATCHED BY TARGET THEN " +
-            "    INSERT (site_id, entity_name, created_date, created_by) " +
-            "    VALUES (source.site_id, source.site_name, GETDATE(), SYSTEM_USER)";
-
-        entityManager.createNativeQuery(mergeSql).executeUpdate();
+        // Final flush and clear
+        entityManager.flush();
+        entityManager.clear();
     }
-}
