@@ -1,42 +1,70 @@
-@Transactional
-public void bulkInsert(List<LocationDTO> locations) {
-    int count = 0;
-    Set<String> insertedSiteIds = new HashSet<>(); // Track already inserted site IDs
-
-    String sql = "INSERT INTO dbo.locations " +
-            "(uuid, site_id, deleted_ind, site_name, address_1, address_2, city, state_code, postal_code, county, created, created_by) " +
-            "VALUES (:uuid, :siteId, :deletedInd, :siteName, :address1, :address2, :city, :stateCode, :postalCode, :county, :created, :createdBy)";
-
-    for (LocationDTO location : locations) {
-        if (insertedSiteIds.contains(location.getSiteId())) {
-            continue; // Skip duplicate site_id in the same batch
-        }
-
-        entityManager.createNativeQuery(sql)
-                .setParameter("uuid", location.getUuid())
-                .setParameter("siteId", location.getSiteId())
-                .setParameter("siteName", location.getSiteName())
-                .setParameter("address1", location.getAddress1())
-                .setParameter("address2", location.getAddress2())
-                .setParameter("city", location.getCity())
-                .setParameter("stateCode", location.getStateCode())
-                .setParameter("postalCode", location.getPostalCode())
-                .setParameter("county", location.getCounty())
-                .setParameter("created", location.getCreated())
-                .setParameter("createdBy", location.getCreatedBy())
-                .setParameter("deletedInd", location.getDeletedInd())
-                .executeUpdate();
-
-        insertedSiteIds.add(location.getSiteId()); // Remember this site_id
-        count++;
-
-        if (count % BATCH_SIZE == 0) {
-            entityManager.flush();
-            entityManager.clear();
-        }
-    }
-
-    // Final flush and clear
-    entityManager.flush();
-    entityManager.clear();
-}
+<div class="table-sm table-responsible table-light">
+                <table class="table" cellspacing="0">
+                    <thead style="background-color: transparent !important; border-bottom: 2px solid #D7D9DA !important">
+                        <tr>
+                            <th class="no-padding inspection-id-header" style="padding-left:4.8px !important">Inspection Id</th>
+                            <th></th>
+                            <th class="no-padding created-header">Created</th>
+                            <th colspan="2" class="text-center no-padding table-column-splitter images-header">Images</th>
+                            <th class="text-center no-padding table-column-splitter faults-header">Faults</th>
+                            <th colspan="2" class="text-center no-padding table-column-splitter faults-created-by-header">Faults - Created By</th>
+                            <th colspan="4" class="text-center no-padding table-column-splitter faults-classification-header">Faults - Classification</th>
+                        </tr>
+                        <tr>
+                            <th colspan="3"></th>
+                            <th class="text-center table-column-splitter"><h6><small>Total</small></h6></th>
+                            <th class="text-center"><h6><small>No Fault</small></h6></th>
+                            <th class="text-center table-column-splitter"><h6><small>Total</small></h6></th>
+                            <th class="text-center table-column-splitter"><h6><small>AI</small></h6></th>
+                            <th class="text-center"><h6><small>User</small></h6></th>
+                            <th class="text-center table-column-splitter"><h6><small>String</small></h6></th>
+                            <th class="text-center"><h6><small>Other</small></h6></th>
+                            <th class="text-center"><h6><small>Diode</small></h6></th>
+                            <th class="text-center"><h6><small>Cell</small></h6></th>
+                            <th class="text-center"><h6><small>String Loss (KW)</small></h6></th>
+                            <th class="text-center"><h6><small>Diode Loss (KW)</small></h6></th>
+                            <th class="text-center"><h6><small>Cell Loss (KW)</small></h6></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let inspection of this.inspectionOpenService.openInspections">
+                            <td><b><span class="cursor-pointer link" (click)="selectInspection(inspection)">{{inspection.inspectionId}}</span></b></td>
+                            <td class="cursor-pointer">
+                                <span class="smaller" style="float: left; margin-right: 7px">
+                                    <i
+                                    class="fas fa-plus fa-lg"
+                                    matTooltip="Add file(s) to current inspection"
+                                    style="vertical-align: bottom"
+                                    (click)="addFileToInspection(inspection.inspectionId)"></i>
+                                </span>
+                                <div class="potato" style="display: flex; flex-wrap: wrap; align-items: center;">
+                                    <i class="fas fa-file-pdf" matTooltip="Generate Images Report" style="margin-right: 7px" (click)="getDataforReportandRedirect(solarPlantService.selectedSolarPlant, inspection)">
+                                    </i>
+                                    <i class="fas fa-file-excel" matTooltip="Generate Fault List XLS" style="margin-right: 7px" (click)="getWorkOrderNeededReport(inspection)">
+                                    </i>
+                                    <div *ngIf="userApi.userInfo$.value.role === 'admin' || userApi.userInfo$.value.role === 'Admin'; else rerunModel">                                        
+                                        <i class="fas fa-refresh" matTooltip="Rerun Inspection Model"(click)="rerunMadlabModel(inspection)" mat-button [disabled]="!upLoading">
+                                    </i>
+                                    </div>
+                                    <ng-template #rerunModel>                                        
+                                    </ng-template>
+ 
+                                </div>
+                            </td>
+                            <td>{{inspection.createdTs | date:'MM/dd/yyyy'}}</td>
+                            <td class="text-center table-column-splitter">{{inspection.imagesTotal}}</td>
+                            <td class="text-center">{{inspection.imagesNoFaultTotal}}</td>
+                            <td class="text-center table-column-splitter">{{inspection.faultsTotal}}</td>
+                            <td class="text-center table-column-splitter">{{inspection.faultsCreatedAi}}</td>
+                            <td class="text-center">{{inspection.faultsCreatedUser}}</td>
+                            <td class="text-center table-column-splitter">{{inspection.faultsString}}</td>
+                            <td class="text-center">{{inspection.faultsOther}}</td>
+                            <td class="text-center">{{inspection.faultsDiode}}</td>
+                            <td class="text-center">{{inspection.faultsCell}}</td>
+                            <td class="text-center">{{inspection.stringLoss}}</td>
+                            <td class="text-center">{{inspection.diodeLoss}}</td>
+                            <td class="text-center">{{inspection.cellLoss}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
