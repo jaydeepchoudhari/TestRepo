@@ -1,26 +1,50 @@
-columns = [
-  { field: 'inspectionId', label: 'Inspection Id', className: 'no-padding inspection-id-header cursor-pointer' },
-  { field: 'createdTs', label: 'Created', className: 'no-padding created-header cursor-pointer', width: 150 },
-  { field: 'imagesTotal', label: 'Images Total', className: 'text-center cursor-pointer' },
-  { field: 'imagesNoFaultTotal', label: 'Images No Fault', className: 'text-center cursor-pointer' },
-  { field: 'faultsTotal', label: 'Faults Total', className: 'text-center cursor-pointer' },
-  { field: 'faultsCreatedAi', label: 'Faults AI', className: 'text-center cursor-pointer' },
-  { field: 'faultsCreatedUser', label: 'Faults User', className: 'text-center cursor-pointer' },
-  { field: 'faultsString', label: 'Faults String', className: 'text-center cursor-pointer' },
-  { field: 'faultsOther', label: 'Faults Other', className: 'text-center cursor-pointer' },
-  { field: 'faultsDiode', label: 'Faults Diode', className: 'text-center cursor-pointer' },
-  { field: 'faultsCell', label: 'Faults Cell', className: 'text-center cursor-pointer' },
-  { field: 'stringLoss', label: 'String Loss (KW)', className: 'text-center cursor-pointer' },
-  { field: 'diodeLoss', label: 'Diode Loss (KW)', className: 'text-center cursor-pointer' },
-  { field: 'cellLoss', label: 'Cell Loss (KW)', className: 'text-center cursor-pointer' }
-];
-
-<th *ngFor="let col of columns"
-    [ngClass]="col.className"
-    [style.width.px]="col.width ? col.width : null"
-    (click)="sortData(col.field)">
-  {{ col.label }}
-  <span *ngIf="sortColumn === col.field">
-    {{ sortDirection === 'asc' ? '▲' : '▼' }}
-  </span>
-</th>
+<ng-template [ngIf]="this.inspectionOpenService.saving">
+    <div class="card" style="width:100%;">
+        <div class="card-body">
+            <br><br>
+            <mat-progress-spinner mode="indeterminate" color="primary" class="margin-auto small-spinner" style="margin:auto;"></mat-progress-spinner>
+            <br/>
+            <h4 class="card-text text-center">Saving New Fault...</h4> 
+        </div>
+    </div>
+</ng-template>
+<ng-template [ngIf]="!this.inspectionOpenService.saving">
+    <div class="card" style="height:100%; padding: 0px !important">
+        <div class="card-header" id="newFaultDialogHeader" style="height:60px;">Click And Drag To Create New Fault1
+            <div class="float-right">
+                <button class="btn card-text btn-functional" type="button" 
+                *ngIf="createdFault"
+                (click)="showModalNewFaultClassification()" matTooltip="Classify This New Fault">
+                    <i class="fa fa-check-double fa-sm"></i> Classify
+                </button>
+                &nbsp;&nbsp;
+                <i class="fa fa-times-circle fa-lg cursor-pointer" (click)="closeModal()"></i>
+            </div>
+        </div>
+        <div class="card-body cursor-pointer" id="cardBodyModal" style="padding:0px;">
+            <!--PHOTO-->
+            <div id="photoWrapperModal" style="position:relative;width:100%;">
+                <div id="canvas" (mousedown)="onMouseDown($event)" (mousemove)="onMouseMove($event)" (mouseup)="onMouseUp($event)" 
+                style="z-index:99;width:100%;height:100%;position:absolute;"></div>
+                <img src="{{this.inspectionOpenService.selectedImage.imageUrl}}" id="selectedImagePhotoModal"
+                style="-webkit-user-drag: none;" draggable="false" 
+                (load)="imageLoaded()"/>
+                
+                <!--FAULT-->
+                <div *ngIf="this.inspectionOpenService.selectedImage?.filename" style="position: absolute;" 
+                [ngStyle]="setFaultMarkerPosition(this.inspectionOpenService.selectedImage?.faultPosition)">
+                    <div class="other-fault"
+                        [ngStyle]="setFaultBoundingBoxPosition(this.inspectionOpenService.selectedImage)">
+                    </div>
+                </div>
+                <!--OTHER FAULTS-->
+                <div *ngFor="let fault of this.inspectionOpenService.otherFaults" style="position: absolute;"
+                [ngStyle]="setFaultMarkerPosition(fault?.faultPosition)" (mousemove)="onMouseMove2($event)">
+                    <div class="other-fault"
+                        [ngStyle]="setFaultBoundingBoxPosition(fault)">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</ng-template>
