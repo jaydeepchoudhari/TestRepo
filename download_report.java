@@ -1,83 +1,163 @@
-  public byte[] exportCustomersToExcel(List<Customer> customers, List<CustomerDetails> customerDetails) throws IOException {
-        try (Workbook workbook = new XSSFWorkbook()) {
-            CellStyle headerStyle = createHeaderStyle(workbook);
-            
-            createCustomerSheet(workbook, customers, headerStyle);
-            createCustomerDetailsSheet(workbook, customerDetails, headerStyle);
-            
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-            return outputStream.toByteArray();
-        }
-    }
+<ng-template [ngIf]="!this.inspectionOpenService.saving">
+  <div class="card" style="height: 100%; padding: 0px !important">
+    <div
+      class="card-body cursor-pointer"
+      id="cardBodyModal"
+      style="padding: 0px"
+    >
+      <!--PHOTO WITH NAVIGATION-->
+      <div class="image-slider-wrapper">
+        <!-- Previous Button -->
+        <button 
+          class="nav-button prev-button" 
+          (click)="previousImage()"
+          [disabled]="images.length <= 1">
+          &#8249;
+        </button>
 
-    private void createCustomerSheet(Workbook workbook, List<Customer> customers, CellStyle headerStyle) {
-        Sheet sheet = workbook.createSheet("Customers");
-        
-        // Create header row
-        Row headerRow = sheet.createRow(0);
-        String[] headers = {"ID", "Name", "Email", "Phone", "Join Date"};
-        
-        for (int i = 0; i < headers.length; i++) {
-            Cell cell = headerRow.createCell(i);
-            cell.setCellValue(headers[i]);
-            cell.setCellStyle(headerStyle);
-        }
-        
-        // Create data rows
-        int rowNum = 1;
-        for (Customer customer : customers) {
-            Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(customer.getId());
-            row.createCell(1).setCellValue(customer.getName());
-            row.createCell(2).setCellValue(customer.getEmail());
-            row.createCell(3).setCellValue(customer.getPhone());
-            row.createCell(4).setCellValue(customer.getJoinDate().toString());
-        }
-        
-        // Auto-size columns
-        for (int i = 0; i < headers.length; i++) {
-            sheet.autoSizeColumn(i);
-        }
-    }
+        <!-- Image Container -->
+        <div id="photoWrapperModal" style="position: relative; width: 100%; flex: 1;">
+          <div
+            id="canvas"
+            (mousedown)="onMouseDown($event)"
+            (mousemove)="onMouseMove($event)"
+            (mouseup)="onMouseUp($event)"
+            style="z-index: 99; width: 100%; height: 100%; position: absolute"
+          ></div>
+          <img
+            src="{{this.inspectionOpenService.selectedImage.imageUrl}}"
+            id="selectedImagePhotoModal"
+            style="-webkit-user-drag: none"
+            draggable="false"
+            (load)="imageLoaded()"
+          />
+        </div>
 
-    private void createCustomerDetailsSheet(Workbook workbook, List<CustomerDetails> details, CellStyle headerStyle) {
-        Sheet sheet = workbook.createSheet("Customer Details");
-        
-        // Create header row
-        Row headerRow = sheet.createRow(0);
-        String[] headers = {"Detail ID", "Customer ID", "Address", "Membership Level", "Last Purchase"};
-        
-        for (int i = 0; i < headers.length; i++) {
-            Cell cell = headerRow.createCell(i);
-            cell.setCellValue(headers[i]);
-            cell.setCellStyle(headerStyle);
-        }
-        
-        // Create data rows
-        int rowNum = 1;
-        for (CustomerDetails detail : details) {
-            Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(detail.getDetailId());
-            row.createCell(1).setCellValue(detail.getCustomerId());
-            row.createCell(2).setCellValue(detail.getAddress());
-            row.createCell(3).setCellValue(detail.getMembershipLevel());
-            row.createCell(4).setCellValue(detail.getLastPurchase().toString());
-        }
-        
-        // Auto-size columns
-        for (int i = 0; i < headers.length; i++) {
-            sheet.autoSizeColumn(i);
-        }
-    }
+        <!-- Next Button -->
+        <button 
+          class="nav-button next-button" 
+          (click)="nextImage()"
+          [disabled]="images.length <= 1">
+          &#8250;
+        </button>
+      </div>
 
-    private CellStyle createHeaderStyle(Workbook workbook) {
-        CellStyle style = workbook.createCellStyle();
-        Font font = workbook.createFont();
-        font.setBold(true);
-        style.setFont(font);
-        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        return style;
+      <!-- Image Counter -->
+      <div class="image-counter">
+        {{ currentImageNumber }} / {{ totalImages }}
+      </div>
+    </div>
+  </div>
+</ng-template>
+
+// Add these methods to your TypeScript component
+export class YourComponent {
+  currentIndex = 0;
+  
+  // Your existing images array (replace with your actual property name)
+  // images = this.inspectionOpenService.images; // or however you access your images
+
+  previousImage(): void {
+    if (this.images && this.images.length > 1) {
+      this.currentIndex = this.currentIndex === 0 
+        ? this.images.length - 1 
+        : this.currentIndex - 1;
+      
+      // Update the selected image in your service
+      this.inspectionOpenService.selectedImage = this.images[this.currentIndex];
     }
+  }
+
+  nextImage(): void {
+    if (this.images && this.images.length > 1) {
+      this.currentIndex = this.currentIndex === this.images.length - 1 
+        ? 0 
+        : this.currentIndex + 1;
+      
+      // Update the selected image in your service
+      this.inspectionOpenService.selectedImage = this.images[this.currentIndex];
+    }
+  }
+
+  get currentImageNumber(): number {
+    return this.currentIndex + 1;
+  }
+
+  get totalImages(): number {
+    return this.images ? this.images.length : 0;
+  }
+
+  get images() {
+    // Replace this with your actual images array property
+    return this.inspectionOpenService.images || [];
+  }
+
+  // Your existing methods...
+  // onMouseDown, onMouseMove, onMouseUp, imageLoaded, etc.
 }
+
+// Add this CSS to your component's stylesheet
+<style>
+.image-slider-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  height: calc(100% - 40px); /* Reserve space for counter */
+}
+
+.nav-button {
+  background-color: #333;
+  color: white;
+  border: none;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.nav-button:hover:not(:disabled) {
+  background-color: #555;
+}
+
+.nav-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.image-counter {
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .image-slider-wrapper {
+    gap: 10px;
+  }
+  
+  .nav-button {
+    width: 35px;
+    height: 35px;
+    font-size: 16px;
+  }
+  
+  .image-counter {
+    font-size: 12px;
+    padding: 8px;
+  }
+}
+</style>
