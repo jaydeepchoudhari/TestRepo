@@ -1,3 +1,58 @@
-<div _ngcontent-btx-c211="" id="newFaultDialogHeader" class="card-header" style="height: 60px;"><span _ngcontent-btx-c211="">Click And Drag To Create New Fault</span><span _ngcontent-btx-c211="" style="margin-left: 2%;">(20240321_175709_PCNemec_img_1.JPG)</span><div _ngcontent-btx-c211="" class="float-right"><!--bindings={
-  "ng-reflect-ng-if": "false"
-}--> &nbsp;&nbsp; <i _ngcontent-btx-c211="" class="fa fa-times-circle fa-lg cursor-pointer"></i></div><div _ngcontent-btx-c211="" class="float-right" style="margin-right: 5%;"><button _ngcontent-btx-c211="" class="nav-button next"><i _ngcontent-btx-c211="" class="fas fa-chevron-right"></i></button></div><div _ngcontent-btx-c211="" class="float-right" style="margin-right: 5%;"><button _ngcontent-btx-c211="" class="nav-button prev"><i _ngcontent-btx-c211="" class="fas fa-chevron-left"></i></button></div></div>
+<div id="newFaultDialogHeader" class="card-header">
+  <div class="left-section">
+    <span id="note">Click And Drag To Create New Fault</span>
+    <span id="fileName">(20240321_175709_PCNemec_img_1.JPG)</span>
+  </div>
+
+  <div class="right-section">
+    <button class="nav-button prev">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+    <button class="nav-button next">
+      <i class="fas fa-chevron-right"></i>
+    </button>
+  </div>
+</div>
+
+
+  #newFaultDialogHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 60px;
+  padding: 0 5%;
+  background-color: #fff; /* optional */
+}
+
+.left-section {
+  display: flex;
+  flex-direction: column; /* stack spans vertically */
+  justify-content: center;
+}
+
+#note {
+  font-weight: 600;
+}
+
+#fileName {
+  margin-top: 2px;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.right-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.nav-button:hover {
+  color: #007bff;
+}
