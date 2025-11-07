@@ -7,3 +7,24 @@ BEGIN
     PRINT SUBSTRING(@sql, @i, @chunk_size)
     SET @i = @i + @chunk_size
 END
+
+
+CREATE FUNCTION dbo.QuotenameLong(@input NVARCHAR(MAX), @quote_char NCHAR(1) = '[')
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    DECLARE @chunk_size INT = 128
+    DECLARE @result NVARCHAR(MAX) = ''
+    DECLARE @i INT = 1
+    DECLARE @len INT = LEN(@input)
+    
+    WHILE @i <= @len
+    BEGIN
+        DECLARE @chunk NVARCHAR(128) = SUBSTRING(@input, @i, @chunk_size)
+        SET @result = @result + QUOTENAME(@chunk, @quote_char)
+        SET @i = @i + @chunk_size
+    END
+    
+    RETURN @result
+END
+GO
