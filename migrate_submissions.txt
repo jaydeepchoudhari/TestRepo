@@ -2,45 +2,43 @@ USE SourceDB;
 GO
 
 DECLARE @SubmissionIds TABLE (Id INT);
--- 🔹 Add one or more submission IDs to export
-INSERT INTO @SubmissionIds (Id) VALUES (101);  -- Example
+-- 🔹 Add submission IDs to export
+INSERT INTO @SubmissionIds (Id) VALUES (101), (102);  -- Example
 
+DECLARE @CRLF NVARCHAR(2) = CHAR(13) + CHAR(10);
 DECLARE @FinalScript NVARCHAR(MAX) = N'';
-DECLARE @CRLF NCHAR(2) = CHAR(13) + CHAR(10);
 
-DECLARE cur CURSOR FOR
+DECLARE curSubmission CURSOR FOR
 SELECT id
 FROM dbo.SUBMISSION_MASTER
 WHERE id IN (SELECT Id FROM @SubmissionIds);
 
 DECLARE @SubmissionId INT;
-OPEN cur;
-FETCH NEXT FROM cur INTO @SubmissionId;
+OPEN curSubmission;
+FETCH NEXT FROM curSubmission INTO @SubmissionId;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    DECLARE @Block NVARCHAR(MAX) = N'';
-    DECLARE @Master NVARCHAR(MAX) = N'';
-    DECLARE @Sections NVARCHAR(MAX) = N'';
-    DECLARE @Fields NVARCHAR(MAX) = N'';
-    DECLARE @SubAttrs NVARCHAR(MAX) = N'';
+    DECLARE @Script NVARCHAR(MAX) = N'';
 
     ------------------------------------------------------------
-    -- 1️⃣ SUBMISSION_MASTER
+    -- 🧩 HEADER AND MASTER INSERT
     ------------------------------------------------------------
-    SELECT @Master = 
-    '----------------------------------------------------------' + @CRLF +
-    '-- MIGRATION SCRIPT FOR SUBMISSION_ID = ' + CAST(id AS NVARCHAR(10)) + @CRLF +
-    '----------------------------------------------------------' + @CRLF +
+    SET @Script = 
+    '--------------------------------------------------------' + @CRLF +
+    '-- MIGRATION SCRIPT FOR SUBMISSION_ID = ' + CAST(@SubmissionId AS NVARCHAR(10)) + @CRLF +
+    '--------------------------------------------------------' + @CRLF +
     'BEGIN TRY' + @CRLF +
     'BEGIN TRANSACTION;' + @CRLF +
     'DECLARE @NewSubmissionId INT;' + @CRLF +
-    'DECLARE @OldSubmissionId INT = ' + CAST(id AS NVARCHAR(10)) + ';' + @CRLF + @CRLF +
-    '-- Insert into SUBMISSION_MASTER' + @CRLF +
+    'DECLARE @OldSubmissionId INT = ' + CAST(@SubmissionId AS NVARCHAR(10)) + ';' + @CRLF + @CRLF;
+
+    DECLARE @MasterRow NVARCHAR(MAX) = N'';
+    SELECT @MasterRow = 
     'INSERT INTO dbo.SUBMISSION_MASTER (' + @CRLF +
-    '    template_id, user_name, created, updated_by, updated, is_draft, tenant, lob_id, created_date, device_type, cloned_from_id' + @CRLF +
-    ') VALUES (' + @CRLF +
-    ISNULL(CAST(template_id AS NVARCHAR(20)), 'NULL') + ',' + @CRLF +
+    'template_id, user_name, created, updated_by, updated, is_draft, tenant, lob_id, created_date, device_type, cloned_from_id)' + @CRLF +
+    'VALUES (' + @CRLF +
+    CAST(template_id AS NVARCHAR(20)) + ',' + @CRLF +
     QUOTENAME(user_name, '''') + ',' + @CRLF +
     'CAST(''' + CONVERT(VARCHAR(33), created, 126) + ''' AS DATETIMEOFFSET),' + @CRLF +
     ISNULL(QUOTENAME(updated_by, '''') + ',', 'NULL,') + @CRLF +
@@ -56,98 +54,176 @@ BEGIN
     'PRINT ''Inserted SUBMISSION_MASTER old_id=' + CAST(id AS NVARCHAR(10)) + ' new_id='' + CAST(@NewSubmissionId AS NVARCHAR(10));' + @CRLF + @CRLF
     FROM dbo.SUBMISSION_MASTER WHERE id = @SubmissionId;
 
+    SET @Script += @MasterRow;
 
     ------------------------------------------------------------
-    -- 2️⃣ SUBMISSION_SECTIONS
+    -- 🧩 SECTIONS LOOP
     ------------------------------------------------------------
-    SELECT @Sections = ISNULL(@Sections, N'') +
-    '-- Insert into SUBMISSION_SECTIONS' + @CRLF +
-    'INSERT INTO dbo.SUBMISSION_SECTIONS (' + @CRLF +
-    '    submission_id, created, updated_by, updated, section_id, comment' + @CRLF +
-    ') VALUES (' + @CRLF +
-    '@NewSubmissionId,' + @CRLF +
-    'CAST(''' + CONVERT(VARCHAR(33), created, 126) + ''' AS DATETIMEOFFSET),' + @CRLF +
-    ISNULL(QUOTENAME(updated_by, '''') + ',', 'NULL,') + @CRLF +
-    ISNULL('CAST(''' + CONVERT(VARCHAR(33), updated, 126) + ''' AS DATETIMEOFFSET),', 'NULL,') + @CRLF +
-    CAST(section_id AS NVARCHAR(10)) + ',' + @CRLF +
-    ISNULL(QUOTENAME(comment, ''''), 'NULL') + @CRLF +
-    ');' + @CRLF +
-    'PRINT ''Inserted SUBMISSION_SECTION for section_id=' + CAST(section_id AS NVARCHAR(10)) + ''';' + @CRLF + @CRLF
-    FROM dbo.SUBMISSION_SECTIONS WHERE submission_id = @SubmissionId;
+    SET @Script += '--------------------------------------------------------' + @CRLF +
+                   '-- SUBMISSION_SECTIONS' + @CRLF +
+                   '--------------------------------------------------------' + @CRLF;
 
+    DECLARE curSections CURSOR FOR
+    SELECT id, created, updated_by, updated, section_id, comment
+    FROM dbo.SUBMISSION_SECTIONS
+    WHERE submission_id = @SubmissionId;
 
-    ------------------------------------------------------------
-    -- 3️⃣ SUBMISSION_FIELDS
-    ------------------------------------------------------------
-    SET @Fields = N'DECLARE @FieldMap TABLE (OldFieldId INT, NewFieldId INT);' + @CRLF;
+    DECLARE 
+        @SecId INT,
+        @SecCreated DATETIMEOFFSET(7),
+        @SecUpdatedBy NCHAR(32),
+        @SecUpdated DATETIMEOFFSET(7),
+        @SecSectionId INT,
+        @SecComment NVARCHAR(500);
 
-    SELECT @Fields = @Fields +
-    '-- Insert into SUBMISSION_FIELDS' + @CRLF +
-    'DECLARE @NewFieldId INT;' + @CRLF +
-    'INSERT INTO dbo.SUBMISSION_FIELDS (' + @CRLF +
-    '    submission_id, created, updated_by, updated, field_id, section_id, answer_id, value, comment, field_label, section_label, answer_text' + @CRLF +
-    ') VALUES (' + @CRLF +
-    '@NewSubmissionId,' + @CRLF +
-    'CAST(''' + CONVERT(VARCHAR(33), created, 126) + ''' AS DATETIMEOFFSET),' + @CRLF +
-    ISNULL(QUOTENAME(updated_by, '''') + ',', 'NULL,') + @CRLF +
-    ISNULL('CAST(''' + CONVERT(VARCHAR(33), updated, 126) + ''' AS DATETIMEOFFSET),', 'NULL,') + @CRLF +
-    CAST(field_id AS NVARCHAR(10)) + ',' + @CRLF +
-    CAST(section_id AS NVARCHAR(10)) + ',' + @CRLF +
-    ISNULL(CAST(answer_id AS NVARCHAR(10)) + ',', 'NULL,') + @CRLF +
-    ISNULL(QUOTENAME(value, '''') + ',', 'NULL,') + @CRLF +
-    ISNULL(QUOTENAME(comment, '''') + ',', 'NULL,') + @CRLF +
-    ISNULL(QUOTENAME(field_label, '''') + ',', 'NULL,') + @CRLF +
-    ISNULL(QUOTENAME(section_label, '''') + ',', 'NULL,') + @CRLF +
-    ISNULL(QUOTENAME(answer_text, ''''), 'NULL') + @CRLF +
-    ');' + @CRLF +
-    'SET @NewFieldId = SCOPE_IDENTITY();' + @CRLF +
-    'INSERT INTO @FieldMap VALUES (' + CAST(id AS NVARCHAR(10)) + ', @NewFieldId);' + @CRLF +
-    'PRINT ''Inserted SUBMISSION_FIELD old_field_id=' + CAST(id AS NVARCHAR(10)) + ' new_field_id='' + CAST(@NewFieldId AS NVARCHAR(10));' + @CRLF + @CRLF
-    FROM dbo.SUBMISSION_FIELDS WHERE submission_id = @SubmissionId;
+    OPEN curSections;
+    FETCH NEXT FROM curSections INTO @SecId, @SecCreated, @SecUpdatedBy, @SecUpdated, @SecSectionId, @SecComment;
 
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @Script += 
+        'INSERT INTO dbo.SUBMISSION_SECTIONS (submission_id, created, updated_by, updated, section_id, comment)' + @CRLF +
+        'VALUES (' + @CRLF +
+        '@NewSubmissionId,' + @CRLF +
+        'CAST(''' + CONVERT(VARCHAR(33), @SecCreated, 126) + ''' AS DATETIMEOFFSET),' + @CRLF +
+        ISNULL(QUOTENAME(@SecUpdatedBy, '''') + ',', 'NULL,') + @CRLF +
+        ISNULL('CAST(''' + CONVERT(VARCHAR(33), @SecUpdated, 126) + ''' AS DATETIMEOFFSET),', 'NULL,') + @CRLF +
+        CAST(@SecSectionId AS NVARCHAR(10)) + ',' + @CRLF +
+        ISNULL(QUOTENAME(@SecComment, ''''), 'NULL') + @CRLF +
+        ');' + @CRLF +
+        'PRINT ''Inserted SUBMISSION_SECTION id=' + CAST(@SecId AS NVARCHAR(10)) + ''';' + @CRLF + @CRLF;
+
+        FETCH NEXT FROM curSections INTO @SecId, @SecCreated, @SecUpdatedBy, @SecUpdated, @SecSectionId, @SecComment;
+    END
+
+    CLOSE curSections;
+    DEALLOCATE curSections;
 
     ------------------------------------------------------------
-    -- 4️⃣ SUBMISSION_FIELD_SUBATTRIBUTES
+    -- 🧩 FIELDS LOOP
     ------------------------------------------------------------
-    SELECT @SubAttrs = ISNULL(@SubAttrs, N'') +
-    '-- Insert into SUBMISSION_FIELD_SUBATTRIBUTES' + @CRLF +
-    'INSERT INTO dbo.SUBMISSION_FIELD_SUBATTRIBUTES (' + @CRLF +
-    '    submission_field_id, subattribute_id, created, updated_by, updated, answer_text' + @CRLF +
-    ') SELECT ' + @CRLF +
-    'fm.NewFieldId,' + @CRLF +
-    CAST(subattribute_id AS NVARCHAR(10)) + ',' + @CRLF +
-    'CAST(''' + CONVERT(VARCHAR(33), created, 126) + ''' AS DATETIMEOFFSET),' + @CRLF +
-    ISNULL(QUOTENAME(updated_by, '''') + ',', 'NULL,') + @CRLF +
-    ISNULL('CAST(''' + CONVERT(VARCHAR(33), updated, 126) + ''' AS DATETIMEOFFSET),', 'NULL,') + @CRLF +
-    ISNULL(QUOTENAME(answer_text, ''''), 'NULL') + @CRLF +
-    'FROM @FieldMap fm WHERE fm.OldFieldId = ' + CAST(submission_field_id AS NVARCHAR(10)) + ';' + @CRLF +
-    'PRINT ''Inserted SUBMISSION_FIELD_SUBATTRIBUTE for subattribute_id=' + CAST(subattribute_id AS NVARCHAR(10)) + ''';' + @CRLF + @CRLF
-    FROM dbo.SUBMISSION_FIELD_SUBATTRIBUTES
-    WHERE submission_field_id IN (SELECT id FROM dbo.SUBMISSION_FIELDS WHERE submission_id = @SubmissionId);
+    SET @Script += '--------------------------------------------------------' + @CRLF +
+                   '-- SUBMISSION_FIELDS AND SUBATTRIBUTES' + @CRLF +
+                   '--------------------------------------------------------' + @CRLF +
+                   'DECLARE @FieldMap TABLE (OldFieldId INT, NewFieldId INT);' + @CRLF +
+                   'DECLARE @NewFieldId INT;' + @CRLF + @CRLF;
 
+    DECLARE curFields CURSOR FOR
+    SELECT id, created, updated_by, updated, field_id, section_id, answer_id,
+           value, comment, field_label, section_label, answer_text
+    FROM dbo.SUBMISSION_FIELDS
+    WHERE submission_id = @SubmissionId;
+
+    DECLARE 
+        @FldId INT,
+        @FldCreated DATETIMEOFFSET(7),
+        @FldUpdatedBy NCHAR(32),
+        @FldUpdated DATETIMEOFFSET(7),
+        @FldFieldId INT,
+        @FldSectionId INT,
+        @FldAnswerId INT,
+        @FldValue NVARCHAR(255),
+        @FldComment NVARCHAR(500),
+        @FldFieldLabel NVARCHAR(500),
+        @FldSectionLabel NVARCHAR(255),
+        @FldAnswerText NVARCHAR(500);
+
+    OPEN curFields;
+    FETCH NEXT FROM curFields INTO @FldId, @FldCreated, @FldUpdatedBy, @FldUpdated, @FldFieldId, 
+                                 @FldSectionId, @FldAnswerId, @FldValue, @FldComment, 
+                                 @FldFieldLabel, @FldSectionLabel, @FldAnswerText;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @Script +=
+        'INSERT INTO dbo.SUBMISSION_FIELDS (submission_id, created, updated_by, updated, field_id, section_id, answer_id, value, comment, field_label, section_label, answer_text)' + @CRLF +
+        'VALUES (' + @CRLF +
+        '@NewSubmissionId,' + @CRLF +
+        'CAST(''' + CONVERT(VARCHAR(33), @FldCreated, 126) + ''' AS DATETIMEOFFSET),' + @CRLF +
+        ISNULL(QUOTENAME(@FldUpdatedBy, '''') + ',', 'NULL,') + @CRLF +
+        ISNULL('CAST(''' + CONVERT(VARCHAR(33), @FldUpdated, 126) + ''' AS DATETIMEOFFSET),', 'NULL,') + @CRLF +
+        CAST(@FldFieldId AS NVARCHAR(10)) + ',' + @CRLF +
+        CAST(@FldSectionId AS NVARCHAR(10)) + ',' + @CRLF +
+        ISNULL(CAST(@FldAnswerId AS NVARCHAR(10)) + ',', 'NULL,') + @CRLF +
+        ISNULL(QUOTENAME(@FldValue, '''') + ',', 'NULL,') + @CRLF +
+        ISNULL(QUOTENAME(@FldComment, '''') + ',', 'NULL,') + @CRLF +
+        ISNULL(QUOTENAME(@FldFieldLabel, '''') + ',', 'NULL,') + @CRLF +
+        ISNULL(QUOTENAME(@FldSectionLabel, '''') + ',', 'NULL,') + @CRLF +
+        ISNULL(QUOTENAME(@FldAnswerText, ''''), 'NULL') + @CRLF +
+        ');' + @CRLF +
+        'SET @NewFieldId = SCOPE_IDENTITY();' + @CRLF +
+        'INSERT INTO @FieldMap VALUES (' + CAST(@FldId AS NVARCHAR(10)) + ', @NewFieldId);' + @CRLF +
+        'PRINT ''Inserted SUBMISSION_FIELD id=' + CAST(@FldId AS NVARCHAR(10)) + ''';' + @CRLF;
+
+        ------------------------------------------------------------
+        -- Subattribute Cursor (per Field)
+        ------------------------------------------------------------
+        DECLARE curSub CURSOR FOR
+        SELECT subattribute_id, created, updated_by, updated, answer_text
+        FROM dbo.SUBMISSION_FIELD_SUBATTRIBUTES
+        WHERE submission_field_id = @FldId;
+
+        DECLARE 
+            @SubAttrId INT,
+            @SubCreated DATETIMEOFFSET(7),
+            @SubUpdatedBy NCHAR(32),
+            @SubUpdated DATETIMEOFFSET(7),
+            @SubAnswerText NVARCHAR(500);
+
+        OPEN curSub;
+        FETCH NEXT FROM curSub INTO @SubAttrId, @SubCreated, @SubUpdatedBy, @SubUpdated, @SubAnswerText;
+
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            SET @Script +=
+            'INSERT INTO dbo.SUBMISSION_FIELD_SUBATTRIBUTES (submission_field_id, subattribute_id, created, updated_by, updated, answer_text)' + @CRLF +
+            'VALUES (' + @CRLF +
+            '@NewFieldId,' + @CRLF +
+            CAST(@SubAttrId AS NVARCHAR(10)) + ',' + @CRLF +
+            'CAST(''' + CONVERT(VARCHAR(33), @SubCreated, 126) + ''' AS DATETIMEOFFSET),' + @CRLF +
+            ISNULL(QUOTENAME(@SubUpdatedBy, '''') + ',', 'NULL,') + @CRLF +
+            ISNULL('CAST(''' + CONVERT(VARCHAR(33), @SubUpdated, 126) + ''' AS DATETIMEOFFSET),', 'NULL,') + @CRLF +
+            ISNULL(QUOTENAME(@SubAnswerText, ''''), 'NULL') + @CRLF +
+            ');' + @CRLF +
+            'PRINT ''Inserted SUBMISSION_FIELD_SUBATTRIBUTE subattribute_id=' + CAST(@SubAttrId AS NVARCHAR(10)) + ''';' + @CRLF;
+            
+            FETCH NEXT FROM curSub INTO @SubAttrId, @SubCreated, @SubUpdatedBy, @SubUpdated, @SubAnswerText;
+        END
+
+        CLOSE curSub;
+        DEALLOCATE curSub;
+
+        SET @Script += @CRLF;
+
+        FETCH NEXT FROM curFields INTO @FldId, @FldCreated, @FldUpdatedBy, @FldUpdated, @FldFieldId, 
+                                     @FldSectionId, @FldAnswerId, @FldValue, @FldComment, 
+                                     @FldFieldLabel, @FldSectionLabel, @FldAnswerText;
+    END
+
+    CLOSE curFields;
+    DEALLOCATE curFields;
 
     ------------------------------------------------------------
-    -- 🧩 Combine full block
+    -- 🧩 FOOTER
     ------------------------------------------------------------
-    SET @Block = @Master + ISNULL(@Sections, N'') + ISNULL(@Fields, N'') + ISNULL(@SubAttrs, N'') +
-                 'COMMIT TRANSACTION;' + @CRLF +
-                 'PRINT ''Migration for submission_id=' + CAST(@SubmissionId AS NVARCHAR(10)) + ' committed successfully.'';' + @CRLF +
-                 'END TRY' + @CRLF +
-                 'BEGIN CATCH' + @CRLF +
-                 'PRINT ''Error during migration of submission_id=' + CAST(@SubmissionId AS NVARCHAR(10)) + ''';' + @CRLF +
-                 'IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;' + @CRLF +
-                 'THROW;' + @CRLF +
-                 'END CATCH' + @CRLF + 'GO' + @CRLF + @CRLF;
+    SET @Script += 'COMMIT TRANSACTION;' + @CRLF +
+                   'PRINT ''Submission ' + CAST(@SubmissionId AS NVARCHAR(10)) + ' migrated successfully.'';' + @CRLF +
+                   'END TRY' + @CRLF +
+                   'BEGIN CATCH' + @CRLF +
+                   'PRINT ''Error migrating submission ' + CAST(@SubmissionId AS NVARCHAR(10)) + ''';' + @CRLF +
+                   'IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;' + @CRLF +
+                   'THROW;' + @CRLF +
+                   'END CATCH' + @CRLF + 'GO' + @CRLF + @CRLF;
 
-    SET @FinalScript = @FinalScript + @Block;
+    SET @FinalScript += @Script;
 
-    FETCH NEXT FROM cur INTO @SubmissionId;
-END;
+    FETCH NEXT FROM curSubmission INTO @SubmissionId;
+END
 
-CLOSE cur;
-DEALLOCATE cur;
+CLOSE curSubmission;
+DEALLOCATE curSubmission;
 
 ------------------------------------------------------------
--- 🧾 OUTPUT FINAL SCRIPT
+-- 🧾 OUTPUT GENERATED SCRIPT
 ------------------------------------------------------------
 SELECT @FinalScript AS MigrationScript;
