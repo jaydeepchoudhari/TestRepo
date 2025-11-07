@@ -1,0 +1,9 @@
+DECLARE @sql NVARCHAR(MAX) = 'Your very long dynamic SQL query...'
+DECLARE @i INT = 1
+DECLARE @chunk_size INT = 4000
+
+WHILE @i <= LEN(@sql)
+BEGIN
+    PRINT SUBSTRING(@sql, @i, @chunk_size)
+    SET @i = @i + @chunk_size
+END
