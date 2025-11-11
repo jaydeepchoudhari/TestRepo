@@ -28,3 +28,40 @@ BEGIN
     RETURN @result
 END
 GO
+
+
+
+
+
+# PowerShell script to remove $break$ and join broken lines
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$FilePath
+)
+
+# Check if file exists
+if (-not (Test-Path $FilePath)) {
+    Write-Error "File not found: $FilePath"
+    exit 1
+}
+
+try {
+    # Read the entire file content
+    $content = Get-Content -Path $FilePath -Raw
+    
+    # Pattern to find $break$ and the surrounding text across lines
+    # This will match: any text, newline, $break$, any text
+    $pattern = '([^\r\n]*)\r?\n\$break\$([^\r\n]*)'
+    
+    # Replace pattern: keep the text before and after $break$, join them without newline
+    $newContent = $content -replace $pattern, '$1$2'
+    
+    # Write the modified content back to the file
+    $newContent | Set-Content -Path $FilePath -NoNewline
+    
+    Write-Host "File processed successfully: $FilePath" -ForegroundColor Green
+}
+catch {
+    Write-Error "Error processing file: $($_.Exception.Message)"
+    exit 1
+}
