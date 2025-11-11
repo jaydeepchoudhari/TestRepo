@@ -32,8 +32,7 @@ GO
 
 
 
-
-# PowerShell script to remove $break$ and join broken lines
+# PowerShell script to remove $break$ and join broken lines (removes 2 newlines)
 param(
     [Parameter(Mandatory=$true)]
     [string]$FilePath
@@ -49,11 +48,11 @@ try {
     # Read the entire file content
     $content = Get-Content -Path $FilePath -Raw
     
-    # Pattern to find $break$ and the surrounding text across lines
-    # This will match: any text, newline, $break$, any text
-    $pattern = '([^\r\n]*)\r?\n\$break\$([^\r\n]*)'
+    # Pattern to find $break$ and remove it along with 2 newlines
+    # This matches: text, newline, $break$, newline, text
+    $pattern = '([^\r\n]*)\r?\n\$break\$\r?\n([^\r\n]*)'
     
-    # Replace pattern: keep the text before and after $break$, join them without newline
+    # Replace pattern: keep the text before and after $break$, join them directly
     $newContent = $content -replace $pattern, '$1$2'
     
     # Write the modified content back to the file
