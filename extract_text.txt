@@ -1,34 +1,25 @@
-# Output file path
-$outputFile = "result.txt"
+# Input and output file paths
+$inputFile = "result.txt"
+$outputFile = "map.txt"
 
-# Clear output file if it exists
+# Clear output if exists
 if (Test-Path $outputFile) {
     Clear-Content $outputFile
 }
 
-# Get all .txt files in current directory (except result.txt)
-$files = Get-ChildItem -Path . -Filter "*.txt" | Where-Object { $_.Name -ne "result.txt" }
+# Regex to capture old_id and new_id numbers
+$regex = "old_id=(\d+)\s+new_id=(\d+)"
 
-foreach ($file in $files) {
+# Read result.txt line by line
+Get-Content $inputFile | ForEach-Object {
 
-    # Add the filename first
-    Add-Content -Path $outputFile -Value $file.Name
+    if ($_ -match $regex) {
+        $oldId = $matches[1]
+        $newId = $matches[2]
 
-    $found = $false
-
-    # Read file line by line
-    Get-Content $file | ForEach-Object {
-        $line = $_.Trim()
-
-        # Match only exact lines starting with Inserted SUBMISSION_MASTER old_id=
-        if ($line -match "^Inserted SUBMISSION_MASTER old_id=") {
-            Add-Content -Path $outputFile -Value $line
-            $found = $true
-        }
+        # Write in format: oldId$newId
+        Add-Content -Path $outputFile -Value "$oldId`$$newId"
     }
-
-    # Add empty line after each file's section
-    Add-Content -Path $outputFile -Value ""
 }
 
-Write-Host "Extraction complete. Check result.txt"
+Write-Host "Mapping extraction complete. Check map.txt"
