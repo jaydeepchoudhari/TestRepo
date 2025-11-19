@@ -1,24 +1,30 @@
 # Input and output file paths
-$inputFile = "result.txt"
+$inputFile  = "result.txt"
 $outputFile = "map.txt"
 
-# Clear output if exists
+# Remove/clear output file if it exists
 if (Test-Path $outputFile) {
-    Clear-Content $outputFile
+    Remove-Item $outputFile -Force
 }
 
-# Regex to capture old_id and new_id numbers
-$regex = "old_id=(\d+)\s+new_id=(\d+)"
+# Pattern to capture old_id and new_id (handles spaces/tabs)
+$pattern = 'old_id=(\d+)\s+new_id=(\d+)'
+$regex = [regex]::new($pattern)
 
-# Read result.txt line by line
-Get-Content $inputFile | ForEach-Object {
+# Read file line-by-line (preserves blank lines and reads to EOF)
+foreach ($line in [System.IO.File]::ReadLines((Resolve-Path $inputFile))) {
 
-    if ($_ -match $regex) {
-        $oldId = $matches[1]
-        $newId = $matches[2]
+    # If line is empty, just continue (we still continue processing subsequent lines)
+    if ([string]::IsNullOrWhiteSpace($line)) { continue }
 
-        # Write in format: oldId$newId
-        Add-Content -Path $outputFile -Value "$oldId`$$newId"
+    # Find all matches on this line (in case there are multiple pairs in one line)
+    $matches = $regex.Matches($line)
+    foreach ($m in $matches) {
+        $oldId = $m.Groups[1].Value
+        $newId = $m.Groups[2].Value
+
+        # Append in format old$new
+        Add-Content -Path $outputFile -Value ("{0}`${1}" -f $oldId, $newId)
     }
 }
 
