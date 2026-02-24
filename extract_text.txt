@@ -1,7 +1,20 @@
- Select f.id, f.field_label, f.answer_list_id, a.id, a.display_text From dbo.FIELD f
-inner join dbo.SECTION s on s.id = f.section_id
-inner join dbo.ANSWER_LIST al on al.id = f.answer_list_id
-inner join dbo.ANSWER a on a.answers_list_id = al.id
- where template_id = 10044 and f.soft_deleted = 0
- and input_type = 10004 --and f.id = 19946
- order by f.field_order, f.id, a.display_order
+WITH Question_CTE AS (
+    SELECT
+        f.Field_Id,
+        f.Label AS Question,
+        ROW_NUMBER() OVER (ORDER BY f.Field_Id) AS Question_Order
+    FROM FIELD f
+),
+Option_CTE AS (
+    SELECT
+        a.Field_Id,
+        a.Option_Label,
+        ROW_NUMBER() OVER (PARTITION BY a.Field_Id ORDER BY a.Option_Id) AS Option_Order
+    FROM ANSWER a
+)
+SELECT
+    'Question ' + CAST(q.Question_Order AS VARCHAR) + ' : ' + q.Question AS Question,
+    'Option ' + CAST(o.Option_Order AS VARCHAR) + ': ' + o.Option_Label AS Option_Label
+FROM Question_CTE q
+LEFT JOIN Option_CTE o ON q.Field_Id = o.Field_Id
+ORDER BY q.Question_Order, o.Option_Order;
