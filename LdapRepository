@@ -1,4 +1,8 @@
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
-    <PackageReference Include="EPPlus" Version="4.5.3.3" />
-  </ItemGroup>
+[
+  {
+    "id": 1243, "Name": "Dan Jukes"
+  },
+  {
+    "id": 1243, "Name": "Dan Jukes"
+  }
+]
