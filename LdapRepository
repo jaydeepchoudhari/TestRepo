@@ -1,8 +1,1 @@
-[
-  {
-    "id": 1243, "Name": "Dan Jukes"
-  },
-  {
-    "id": 1243, "Name": "Dan Jukes"
-  }
-]
+=CONCATENATE("  { ""id"": ",A2,", ""Name"": """,B2,""" },")
