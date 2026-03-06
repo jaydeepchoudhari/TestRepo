@@ -1,250 +1,85 @@
-https://github.com/e-gov/RIHA-Browser/blob/404f4e3f4357ae1a5146ce1e14d8c023a7221538/backend/src/main/java/ee/ria/riha/domain/LdapRepository.java#L45
-package ee.ria.riha.domain;
+using Microsoft.Data.SqlClient;
+using OfficeOpenXml;
+using System.Data;
 
-import ee.ria.riha.conf.ApplicationProperties.LdapRepositoryProperties;
-import ee.ria.riha.domain.model.LdapGroup;
-import ee.ria.riha.domain.model.LdapUser;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.ldap.core.LdapTemplate;
-import org.springframework.ldap.core.support.LdapContextSource;
-import org.springframework.ldap.filter.AbstractFilter;
-import org.springframework.ldap.filter.EqualsFilter;
-import org.springframework.ldap.filter.LikeFilter;
-import org.springframework.ldap.filter.OrFilter;
-import org.springframework.ldap.query.LdapQuery;
-import org.springframework.ldap.query.LdapQueryBuilder;
-import org.springframework.ldap.support.LdapNameBuilder;
-import org.springframework.ldap.support.LdapUtils;
-import org.springframework.util.Assert;
-
-import javax.naming.Name;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-
-@Slf4j
-public class LdapRepository {
-
-    private static final String USER_ID_ATTRIBUTE = "uid";
-    private static final String COMMON_NAME_ATTRIBUTE = "cn";
-    private static final String MEMBER_OF_ATTRIBUTE = "memberOf";
-    private static final String APPROVER_GROUP_COMMON_NAME_PATTERN = "*-hindaja";
-    private static final String ALL_NON_OPERATIONAL_ATTRIBUTES = "*";
-
-    private Name baseDn;
-    private Name userSearchBase;
-    private Name groupSearchBase;
-    private LdapTemplate ldapTemplate;
-
-    public LdapRepository(LdapContextSource ldapContextSource, LdapRepositoryProperties ldapRepositoryProperties) {
-        Assert.notNull(ldapContextSource, "LDAP context source must not be null");
-        this.ldapTemplate = new LdapTemplate(ldapContextSource);
-
-        this.baseDn = ldapContextSource.getBaseLdapName();
-
-        Assert.hasText(ldapRepositoryProperties.getUserSearchBase(), "userSearchBase must be provided");
-        this.userSearchBase = LdapUtils.newLdapName(ldapRepositoryProperties.getUserSearchBase());
-
-        Assert.hasText(ldapRepositoryProperties.getGroupSearchBase(), "groupSearchBase must be provided");
-        this.groupSearchBase = LdapUtils.newLdapName(ldapRepositoryProperties.getGroupSearchBase());
+namespace SqlToExcel
+{
+    public class Template
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
     }
+    internal class Program
+    {
+        private const string ConnectionString =
+    "Server=YOUR_SERVER;Database=YOUR_DATABASE;" +
+    "User Id=YOUR_USER;Password=YOUR_PASSWORD;TrustServerCertificate=True;";
 
-    public List<LdapUser> findLdapUsersByPersonalCodes(Set<String> personalCodes) {
-        if (personalCodes.isEmpty()) {
-            log.debug("Will not search for users since list of personal codes is empty");
-            return new ArrayList<>();
-        }
+        private const string StoredProcedureName = "dbo.Addsections";
 
-        OrFilter filter = new OrFilter();
-        personalCodes.stream()
-                .map(personalCode -> new EqualsFilter(USER_ID_ATTRIBUTE, personalCode))
-                .forEach(filter::or);
+        static void Main(string[] args)
+        {
 
-        return findLdapUsers(filter);
-    }
+            List<Template> list = new List<Template>();
 
-    private List<LdapUser> findLdapUsers(AbstractFilter filter) {
-        LdapQuery query = LdapQueryBuilder.query()
-                .base(userSearchBase)
-                .attributes(ALL_NON_OPERATIONAL_ATTRIBUTES, MEMBER_OF_ATTRIBUTE)
-                .filter(filter);
-
-        return ldapTemplate.find(query, LdapUser.class);
-    }
-
-    public List<LdapUser> getApproversByOrganization(String organizationCode) {
-        String approverGroupName = APPROVER_GROUP_COMMON_NAME_PATTERN.replace("*", organizationCode);
-        LdapGroup group = findLdapGroup(new EqualsFilter(COMMON_NAME_ATTRIBUTE, approverGroupName));
-        String groupDn = LdapNameBuilder.newInstance(baseDn).add(group.getDn()).build().toString();
-        return findLdapUsers(new EqualsFilter(MEMBER_OF_ATTRIBUTE, groupDn));
-    }
-
-    public List<LdapUser> getUsersByOrganization(String organizationCode) {
-        return getLdapUsersByGroups(organizationCode + ALL_NON_OPERATIONAL_ATTRIBUTES);
-    }
-
-    public List<LdapUser> getAllApprovers() {
-        return getLdapUsersByGroups(APPROVER_GROUP_COMMON_NAME_PATTERN);
-    }
-
-    private List<LdapUser> getLdapUsersByGroups(String groupNamePattern) {
-        List<LdapGroup> groups = findLdapGroups(new LikeFilter(COMMON_NAME_ATTRIBUTE, groupNamePattern));
-        if (groups.isEmpty()) {
-            log.debug("Would not search for approvers since no approver groups found");
-            return new ArrayList<>();
-        }
-
-        OrFilter filter = new OrFilter();
-        groups.stream()
-                .map(group -> LdapNameBuilder.newInstance(baseDn)
-                        .add(group.getDn())
-                        .build()
-                        .toString())
-                .map(groupDn -> new EqualsFilter(MEMBER_OF_ATTRIBUTE, groupDn))
-                .forEach(filter::or);
-
-        return findLdapUsers(filter);
-    }
-
-    private LdapGroup findLdapGroup(AbstractFilter filter) {
-        return ldapTemplate.findOne(getGroupQuery(filter), LdapGroup.class);
-    }
-
-    private List<LdapGroup> findLdapGroups(AbstractFilter filter) {
-        return ldapTemplate.find(getGroupQuery(filter), LdapGroup.class);
-    }
-
-    private LdapQuery getGroupQuery(AbstractFilter filter) {
-        return LdapQueryBuilder.query()
-                .base(groupSearchBase)
-                .filter(filter);
-    }
-}
+            list.Add(new Template { Id = 1, Name = "Name" });
 
 
-import lombok.Data;
-import org.springframework.ldap.odm.annotations.Attribute;
-import org.springframework.ldap.odm.annotations.Entry;
-import org.springframework.ldap.odm.annotations.Id;
+            foreach (Template template in list)
+            {
 
-import javax.naming.Name;
-@Data
-@Entry(objectClasses = {"groupOfNames"})
-public class LdapGroup {
+                DataTable dt = ExecuteStoredProcedure(
+                        connectionString: ConnectionString,
+                        storedProcedure: StoredProcedureName,
+                        parameters: BuildParameters(template.Id)   // add/remove SP params here
+                    );
 
-    @Id
-    private Name dn;
+                using (var package = new ExcelPackage())
+                {
+                    var sheet = package.Workbook.Worksheets.Add(template.Name);
 
-    @Attribute(name = "cn")
-    private String commonName;
+                    sheet.Cells["A1"].LoadFromDataTable(dt, false);
 
-    @Attribute(name = "displayName")
-    private String displayName;
+                    sheet.Cells[sheet.Dimension.Address].AutoFitColumns();
 
-}
-
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.ldap.query.LdapQuery;
-import org.springframework.ldap.query.LdapQueryBuilder;
-import org.springframework.stereotype.Service;
-
-import javax.naming.directory.Attributes;
-import java.util.List;
-
-@Service
-public class LdapService {
-
-    @Autowired
-    private LdapTemplate ldapTemplate;
-
-    public List<String> searchGroupByName(String groupName) {
-        // Define the base for searching groups
-        String groupSearchBase = "ou=Groups,dc=example,dc=com"; // Adjust to match your LDAP structure
-
-        // Create the LDAP query using LdapQueryBuilder
-        LdapQuery query = LdapQueryBuilder.query()
-                .base(groupSearchBase)
-                .filter("(cn=" + groupName + ")"); // Filter to find the group by name
-
-        // Execute the query and map the results
-        return ldapTemplate.search(query, (Attributes attrs) -> {
-            // Return the group name or any other attribute you need
-            return attrs.get("cn").get().toString(); // Adjust as necessary
-        });
-    }
-}
-
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.ldap.query.LdapQuery;
-import org.springframework.ldap.query.LdapQueryBuilder;
-import org.springframework.stereotype.Service;
-
-import javax.naming.directory.Attributes;
-import java.util.List;
-
-@Service
-public class LdapService {
-
-    @Autowired
-    private LdapTemplate ldapTemplate;
-
-    private static final String MEMBER_OF_ATTRIBUTE = "memberOf";
-    private static final String ALL_NON_OPERATIONAL_ATTRIBUTES = "*";
-
-    public List<String> getUsersOfGroup(String groupName) {
-        // Define the base for searching users
-        String userSearchBase = "ou=Users,dc=example,dc=com"; // Adjust according to your LDAP structure
-
-        // Build the LDAP query to find users in the specified group
-        LdapQuery query = LdapQueryBuilder.query()
-                .base(userSearchBase)
-                .attributes(ALL_NON_OPERATIONAL_ATTRIBUTES, MEMBER_OF_ATTRIBUTE) // Include all attributes and 'memberOf'
-                .filter("(&(objectClass=person)(memberOf=cn=" + groupName + ",ou=Groups,dc=example,dc=com))");
-
-        // Execute the query and map the results
-        return ldapTemplate.search(query, (Attributes attrs) -> {
-            // Extract the user's common name (or other identifying attribute)
-            return attrs.get("cn").get().toString(); // Adjust the attribute as necessary
-        });
-    }
-}
-
-
-import org.springframework.ldap.core.LdapTemplate;
-import org.springframework.ldap.query.LdapQuery;
-import org.springframework.stereotype.Service;
-import javax.naming.NamingException;
-import javax.naming.directory.Attributes;
-import static org.springframework.ldap.query.LdapQueryBuilder.query;
-
-@Service
-public class LdapGroupService {
-
-    private final LdapTemplate ldapTemplate;
-    private final String groupSearchBase = "ou=Groups,dc=example,dc=com";
-
-    // Constructor-based injection
-    public LdapGroupService(LdapTemplate ldapTemplate) {
-        this.ldapTemplate = ldapTemplate;
-    }
-
-    public CustomLdapGroup findGroupByDisplayName(String displayName) {
-        LdapQuery query = query()
-                .base(groupSearchBase)
-                .where("objectClass").is("groupOfNames")
-                .and("displayName").is(displayName);
-
-        return ldapTemplate.findOne(query, attributes -> {
-            try {
-                String cn = (attributes.get("cn") != null) ? attributes.get("cn").get().toString() : null;
-                String display = (attributes.get("displayName") != null) ? attributes.get("displayName").get().toString() : null;
-                return new CustomLdapGroup(display, cn);
-            } catch (NamingException e) {
-                throw new RuntimeException("Error mapping LDAP attributes", e);
+                    var fileInfo = new FileInfo(@"C:\Temp\DataTableExport.xlsx");
+                    package.SaveAs(fileInfo);
+                }
             }
-        });
+        }
+
+        private static DataTable ExecuteStoredProcedure(
+            string connectionString,
+            string storedProcedure,
+            SqlParameter[] parameters)
+        {
+            var dt = new DataTable();
+
+            using (var conn = new SqlConnection(connectionString))
+            using (var cmd = new SqlCommand(storedProcedure, conn))
+            {
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandTimeout = 1200; // seconds — increase for long-running SPs
+
+                if (parameters != null)
+                    cmd.Parameters.AddRange(parameters);
+
+                conn.Open();
+
+                using (var adapter = new SqlDataAdapter(cmd))
+                    adapter.Fill(dt);
+            }
+
+            return dt;
+        }
+
+        private static SqlParameter[] BuildParameters(int id)
+        {
+            return new[]
+            {
+        new SqlParameter("@TemplateId", SqlDbType.Int) { Value = id },
+        new SqlParameter("@IsCnt",   SqlDbType.Bit) { Value = true },
+    };
+        }
     }
 }
-
