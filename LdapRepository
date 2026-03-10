@@ -1,158 +1,34 @@
-using Microsoft.Data.SqlClient;
-using OfficeOpenXml;
-using OfficeOpenXml.FormulaParsing.Excel.Functions.Math;
-using System.Data;
-using System.Text.Json;
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable } from 'rxjs';
 
-namespace SqlToExcel
-{
-    public class Template
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-    }
+@Injectable({
+  providedIn: 'root'
+})
+export class VaultService {
 
-    
+  private vaultUrl = 'https://your-vault-server/v1/auth/ldap/login';  // Vault LDAP auth URL
+  private username = 'your-ldap-username';  // LDAP username
+  private password = 'your-ldap-password';  // LDAP password (should be securely handled)
+  
+  constructor(private http: HttpClient) { }
 
-    internal class Program
-    {
-        private static string ConnectionString =
-    "Server=YOUR_SERVER;Database=YOUR_DATABASE;" +
-    "User Id=YOUR_USER;Password=YOUR_PASSWORD;TrustServerCertificate=True;";
-
-        private const string StoredProcedureName = "dbo.Addsections";
-
-
-        static void Main(string[] args)
-        {
-            string exccelPath = @"C:\Temp\DataTableExport.xlsx";
-            FileInfo fileInfo = new FileInfo(exccelPath);
-
-            var list = ReadTemplates(@"C:\Temp\templates.txt");
-
-            using (var package = fileInfo.Exists ? new ExcelPackage(fileInfo) : new ExcelPackage())
-            {
-                foreach (Template template in list)
-                {
-
-                    DataTable dt = ExecuteStoredProcedure(
-                            connectionString: ConnectionString,
-                            storedProcedure: StoredProcedureName,
-                            parameters: BuildParameters(template.Id)   // add/remove SP params here
-                        );
-
-
-                    var sheet = package.Workbook.Worksheets.Add(template.Name);
-
-                    sheet.Cells["A1"].LoadFromDataTable(dt, false);
-
-                    // Find next empty row
-                    int lastRow = sheet.Dimension.End.Row + 2;
-
-                    int count = GetTableCount(File.ReadAllText(@"C:\Temp\q1.txt"), ConnectionString, template.Id);
-
-                    sheet.Cells[lastRow, 1].Value = "Total Sections";
-                    sheet.Cells[lastRow, 2].Value = count;
-
-                    sheet.Cells[lastRow, 1].Style.Font.Bold = true;
-                    sheet.Cells[lastRow, 2].Style.Font.Bold = true;
-
-                    lastRow = sheet.Dimension.End.Row + 1;
-
-                    count = GetTableCount(File.ReadAllText(@"C:\Temp\q2.txt"), ConnectionString, template.Id);
-
-                    sheet.Cells[lastRow, 1].Value = "Total Questions";
-                    sheet.Cells[lastRow, 2].Value = count;
-
-                    sheet.Cells[lastRow, 1].Style.Font.Bold = true;
-                    sheet.Cells[lastRow, 2].Style.Font.Bold = true;
-
-                    lastRow = sheet.Dimension.End.Row + 1;
-
-                    count = GetTableCount(File.ReadAllText(@"C:\Temp\q3.txt"), ConnectionString, template.Id);
-
-                    sheet.Cells[lastRow, 1].Value = "Total Sub Attributes";
-                    sheet.Cells[lastRow, 2].Value = count;
-
-                    sheet.Cells[lastRow, 1].Style.Font.Bold = true;
-                    sheet.Cells[lastRow, 2].Style.Font.Bold = true;
-
-                    lastRow = sheet.Dimension.End.Row + 1;
-
-                    count = GetTableCount(File.ReadAllText(@"C:\Temp\q4.txt"), ConnectionString, template.Id);
-
-                    sheet.Cells[lastRow, 1].Value = "Total Dropdownlist Options";
-                    sheet.Cells[lastRow, 2].Value = count;
-
-                    sheet.Cells[lastRow, 1].Style.Font.Bold = true;
-                    sheet.Cells[lastRow, 2].Style.Font.Bold = true;
-
-                    //sheet.Cells[sheet.Dimension.Address].AutoFitColumns();
-                }
-
-                package.SaveAs(fileInfo);
-            }
-        }
-
-        public static int GetTableCount(string query, string connectionString, int templateId)
-        {
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                using (SqlCommand cmd = new SqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@id", templateId);
-
-                    conn.Open();
-                    return (int)cmd.ExecuteScalar();
-                }
-            }
-        }
-        public static List<Template> ReadTemplates(string filePath)
-        {
-            string json = File.ReadAllText(filePath);
-
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-
-            List<Template> templates = JsonSerializer.Deserialize<List<Template>>(json, options);
-
-            return templates;
-        }
-
-        private static DataTable ExecuteStoredProcedure(
-            string connectionString,
-            string storedProcedure,
-            SqlParameter[] parameters)
-        {
-            var dt = new DataTable();
-
-            using (var conn = new SqlConnection(connectionString))
-            using (var cmd = new SqlCommand(storedProcedure, conn))
-            {
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandTimeout = 1200; // seconds — increase for long-running SPs
-
-                if (parameters != null)
-                    cmd.Parameters.AddRange(parameters);
-
-                conn.Open();
-
-                using (var adapter = new SqlDataAdapter(cmd))
-                    adapter.Fill(dt);
-            }
-
-            return dt;
-        }
-
-        private static SqlParameter[] BuildParameters(int id)
-        {
-            return new[]
-            {
-        new SqlParameter("@TemplateId", SqlDbType.Int) { Value = id },
-        new SqlParameter("@IsCnt",   SqlDbType.Bit) { Value = true },
+  // Function to authenticate via LDAP and get the Vault token
+  authenticateViaLDAP(): Observable<any> {
+    const credentials = {
+      "password": this.password
     };
-        }
-    }
+
+    return this.http.post(this.vaultUrl + `/${this.username}`, credentials);
+  }
+
+  // Function to retrieve secret after getting the Vault token
+  getSecret(vaultToken: string): Observable<any> {
+    const headers = new HttpHeaders({
+      'X-Vault-Token': vaultToken
+    });
+
+    const secretUrl = 'https://your-vault-server/v1/secret/data/my-secret';
+    return this.http.get(secretUrl, { headers });
+  }
 }
