@@ -4,3 +4,5 @@ jq -r ".data.data.database.url, .data.data.database.user" response.json
 
 
 jq: parse error: Invalid numeric literal at line 1, column 3
+
+  <a href="/ui/">Temporary Redirect</a>
