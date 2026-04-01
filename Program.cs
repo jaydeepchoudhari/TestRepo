@@ -1,4 +1,5 @@
-JWK_URI=$(printf '%s' "$SECRET_RESPONSE" | jq -r '.data["security.jwt.jwkSetUri"]')
+printf '%s' "$RESPONSE" | jq '.data | keys'
 
-echo "security.jwt.jwkSetUri: $JWK_URI"
-echo "Length: ${#JWK_URI}"
+JWK_URI=$(printf '%s' "$RESPONSE" | jq -r '.data["security.jwt.jwkSetUri"] // empty')
+
+echo "DEBUG VALUE: [$JWK_URI]"  
