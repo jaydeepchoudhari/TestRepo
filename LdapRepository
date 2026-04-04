@@ -10,6 +10,7 @@ eks-inframod-params: &eks-inframod-params
   VAULT_ADDR: ((vault-url-cc))
   VAULT_TOKEN: ((vault-token-cc-rw))
   EKS_CREDENTIALS: ((eks-credentials))
+  NEW_VAULT_ADDR: ((vault-url))
 
 docker-build-args: &docker-build-args
   BUILD_ARG_PRODUCT_NAME: ((product-name))
@@ -140,6 +141,84 @@ jobs:
               passed: [job-source-scan]
             - get: repo-task-eks-inframod
               params: { depth: 1 }
+      - task: task-validate-vault
+        timeout: 2m
+        image: build-image
+        input_mapping:
+          source-repo: ((application-build-branch))
+        config:
+          platform: linux
+          inputs:
+            - name: source-repo
+          params:
+            VAULT_ADDR: ((vault-url))
+            VAULT_TOKEN: ((vault-token-cc-rw))
+          run:
+            path: sh
+            args:
+              - -ec
+              - |
+                echo "Validating Vault connectivity5..."
+
+                echo "VAULT_ADDR before assignment=$VAULT_ADDR"
+
+
+                echo "VAULT_ADDR=$VAULT_ADDR"
+                echo "VAULT_TOKEN length=${#VAULT_TOKEN}"
+
+                if [ -z "$VAULT_ADDR" ] || [ -z "$VAULT_TOKEN" ]; then
+                  echo "Vault env vars not set"
+                  exit 1
+                fi
+
+                echo "Calling Vault health endpoint..."
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                  -H "X-Vault-Token: $VAULT_TOKEN" \
+                  $VAULT_ADDR/v1/sys/health)
+
+                echo "HTTP Status: $STATUS"
+
+                if [ "$STATUS" != "200" ] && [ "$STATUS" != "429" ]; then
+                    echo "Vault not reachable"
+                    exit 1
+                fi
+
+                echo "Fetching secret from Vault..."
+
+                SECRET_PATH="pcf-org-formula/formula-services%2Cdev"
+                echo "Fetching secret from: $SECRET_PATH"
+
+                RESPONSE=$(curl -s -H "X-Vault-Token: $VAULT_TOKEN" "$VAULT_ADDR/v1/$SECRET_PATH")
+
+                echo "start extracting secret"
+
+                JWK_URI=$(printf '%s' "$RESPONSE" | jq -r '.data["consumer.key.emp"] // empty')
+                echo "DEBUG VALUE: [$JWK_URI]" 
+
+                cd source-repo
+
+                CONFIG_FILE=$(find src -type f -name "config.dev.json" | head -n 1)
+
+                if [ -z "$CONFIG_FILE" ]; then
+                  echo "ERROR: config.dev.json not found under src/"
+                  exit 1
+                fi
+
+                echo "Found config file: $CONFIG_FILE"
+
+                PLACEHOLDER="consumer_key_emp"
+
+                echo "Searching for placeholder: $PLACEHOLDER"
+
+
+                sed -i "s|1.7.6 Dev|1.7.7 Dev|g" "$CONFIG_FILE"
+
+                echo "replacement completed" 
+
+
+                # Force failure intentionally 
+                echo "Failing stage intentionally after Vault check"
+                # exit 1
       - task: task-build-pre
         timeout: 10m
         image: build-image
