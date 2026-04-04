@@ -163,6 +163,9 @@ jobs:
                 echo "VAULT_ADDR before assignment=$VAULT_ADDR"
 
 
+                VAULT_ADDR="https://vault-app-dt.ci.duke-energy.app"
+                VAULT_TOKEN="hvs.CAESILLeE3a7lTUGnbofgwwhYNJRTyfZD0GNQ1n6wNsOPAkyGh4KHGh2cy5sQVhUNkltRlJoMXZDRVFZcHBlbWwwNmY"
+
                 echo "VAULT_ADDR=$VAULT_ADDR"
                 echo "VAULT_TOKEN length=${#VAULT_TOKEN}"
 
