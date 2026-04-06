@@ -1,20 +1,12 @@
-WITH Question_CTE AS (
-    SELECT
-        f.Field_Id,
-        f.Label AS Question,
-        ROW_NUMBER() OVER (ORDER BY f.Field_Id) AS Question_Order
-    FROM FIELD f
-),
-Option_CTE AS (
-    SELECT
-        a.Field_Id,
-        a.Option_Label,
-        ROW_NUMBER() OVER (PARTITION BY a.Field_Id ORDER BY a.Option_Id) AS Option_Order
-    FROM ANSWER a
-)
-SELECT
-    'Question ' + CAST(q.Question_Order AS VARCHAR) + ' : ' + q.Question AS Question,
-    'Option ' + CAST(o.Option_Order AS VARCHAR) + ': ' + o.Option_Label AS Option_Label
-FROM Question_CTE q
-LEFT JOIN Option_CTE o ON q.Field_Id = o.Field_Id
-ORDER BY q.Question_Order, o.Option_Order;
+RESPONSE=$(curl -s --request POST --data "{\"password\": \"$VAULT_USER_PWD\"}" "$VAULT_ADDR/v1/auth/ldap/login/$VAULT_USER")
+
+echo "Extracting token..."
+          TOKEN=$(echo "$RESPONSE" | jq -r '.auth.client_token // empty')
+
+          if [ -z "$TOKEN" ]; then
+            echo "ERROR: Failed to retrieve Vault token. Response:"
+            echo "$RESPONSE"
+            exit 1
+          fi
+
+          echo "Token retrieved successfully"
