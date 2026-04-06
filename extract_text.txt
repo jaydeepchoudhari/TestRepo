@@ -1,12 +1,13 @@
-RESPONSE=$(curl -s --request POST --data "{\"password\": \"$VAULT_USER_PWD\"}" "$VAULT_ADDR/v1/auth/ldap/login/$VAULT_USER")
-
-echo "Extracting token..."
-          TOKEN=$(echo "$RESPONSE" | jq -r '.auth.client_token // empty')
-
-          if [ -z "$TOKEN" ]; then
-            echo "ERROR: Failed to retrieve Vault token. Response:"
-            echo "$RESPONSE"
+if [ -z "$VAULT_ADDR" ] || [ -z "$VAULT_USER" ] || [ -z "$VAULT_USER_PWD" ]; then
+            echo "ERROR: Vault credentials not set"
             exit 1
           fi
 
-          echo "Token retrieved successfully"
+          echo "Checking Vault health..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$VAULT_ADDR/v1/sys/health")
+          echo "Vault health status: $STATUS"
+
+          if [ "$STATUS" != "200" ] && [ "$STATUS" != "429" ]; then
+            echo "ERROR: Vault not reachable. HTTP status: $STATUS"
+            exit 1
+          fi
