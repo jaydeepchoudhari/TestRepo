@@ -1,1 +1,31 @@
-on pr
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: "Build on PR (No Push)"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      - ".gitignore"
+      - "**/*.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+    types: [opened, edited, reopened, synchronize, unlocked]
+
+jobs:
+  test-docker:
+    runs-on: ${{ vars.RUNNERSET_DEFAULT }}
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dukeenergy-corp/duke-actions/composite/docker-build@master
+        with:
+          push: false # don't push for every PR update, just validate that the image can be built successfully.
+          file: .github/Dockerfile
+          build-args: |
+            GO_VERSION=${{ vars.GOLANG_VERSION }}
+            TASK_VERSION=${{ vars.TASK_VERSION }}
