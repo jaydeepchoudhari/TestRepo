@@ -1,284 +1,125 @@
-# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
-name: docker-build
+name: WorkZone iOS Documentation Hub Build Deploy
 
-description: |
-  Composite action for Docker image builds.
+on:
+  # push:
+  #   branches:
+  #     - develop
+  
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment for deployment'
+        required: true
+        type: choice
+        options:
+          - 'sbx'
+          - 'dev'
+          - 'qa'
+          - 'prod'
 
-  This action will build a Docker image and push it to a registry. It will also generate metadata for the
-  image, including tags, annotations, and labels, SBOM attestations, and provenance attestations.
+# Cancels any workflows currently running with the same name and branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
 
-inputs:
-  registry:
-    description: >-
-      The Docker registry to push the image to. Defaults to the duke-cne-docker-local repository.
-    required: false
-    default: "nexus-docker-cne-local.ci.duke-energy.app"
-  username:
-    description: >-
-      Username for authenticating to the Docker registry. Defaults to credentials which only work with
-      the duke-cne-docker-local repository.
-    required: false
-  password:
-    description: >-
-      Password for authenticating to the Docker registry. Defaults to credentials which only work with
-      the duke-cne-docker-local repository.
-    required: false
-  image:
-    description: >-
-      The name of the image to build. Defaults to "{{ product-team }}/{{ repository-name }}" if not provided,
-      and the appcat product is set in the repository settings, otherwise "{{ repo-owner }}/{{ repository-name }}".
-    required: false
-  tag:
-    description: >-
-      The tag to apply to the image. By default, various tags will be automatically associated with the image.
-      Including, but not limited to:
-        - `latest` if the branch matches the default branch and the tag_latest input is true.
-        - `{{tag}}` if the tag is provided.
-        - `{{tag}}-sha-{{sha}}` if the tag is provided.
-        - `{{branch}}-sha-{{sha}}` if the tag is not provided and associated with a branch push.
-        - `{{major}}` if semantic versioned tagged and the latest tag is the same as current tag event.
-        - `{{major}}.{{minor}}` if semantic versioned tagged and the latest tag is the same as current tag event.
-        - `{{major}}.{{minor}}.{{patch}}` if semantic versioned tagged.
-        - `{{branch}}` if the event is associated with a branch.
-        - `{{pr}}` (e.g. `pr-12`) if the event is associated with a pull request.
-        - If "variant" is provided, that is used to suffix ALL tags with the variant name, e.g. "1.0.0-ubuntu".
-    required: false
-  tag_latest:
-    description: >-
-      If the latest tag should be applied to the image. Only applies when the branch matches the default
-      branch. Defaults to false as "latest" generally should not be used.
-    required: false
-    default: "false"
-  tag_semver_overlap:
-    description: >-
-      If the semver tags should overlap when deploying semantic versioned tags. For example, deploying
-      a 1.0.0 tag should also deploy the 1.0 and 1 tags, assuming 1.0.0 is the latest version.
-    required: false
-    default: "false"
-  publish-multiple-tags:
-    description: >-
-      If multiple tags should be published to the registry. Defaults to true as multiple tags are generally
-      useful for deployments.
-    required: false
-    default: "true"
-  variant:
-    description: >-
-      Image variant to build. If provided, the all tags will be suffixed with the variant name.
-    required: false
-  annotations:
-    description: "List of annotation to set to the image"
-    required: false
-  attests:
-    description: "List of attestation parameters (e.g., type=sbom,generator=image)"
-    required: false
-  build-args:
-    description: "List of build-time variables"
-    required: false
-  build-contexts:
-    description: "List of additional build contexts (e.g., name=path)"
-    required: false
-  cache-to:
-    description: "List of cache destinations (format: type=local,dest=path)"
-    required: false
-  context:
-    description: >-
-      Build's context is the set of files located in the specified PATH or URL (default Git context)
-    required: false
-    default: .
-  file:
-    description: "Path to the Dockerfile. (default {context}/Dockerfile)"
-    required: false
-    default: Dockerfile
-  labels:
-    description: >-
-      List of metadata for an image. Note that multiple will be added by default.
-    required: false
-  provenance:
-    description: >-
-      Generate provenance attestation for the build (shorthand for --attest=type=provenance)
-    required: false
-  push:
-    description: "If the image should be pushed to the registry."
-    required: false
-    default: "false"
-  secrets:
-    description: >-
-      List of secrets to expose to the build (e.g., key=string, GIT_AUTH_TOKEN=mytoken)
-  secret-envs:
-    description: >-
-      List of secret env vars to expose to the build (e.g., key=envname, MY_SECRET=MY_ENV_VAR)
-    required: false
-  sbom:
-    description: "Generate SBOM attestation for the build (shorthand for --attest=type=sbom)"
-    required: false
-    default: "false"
-  target:
-    description: "Sets the target stage to build"
-    required: false
-  ulimit:
-    description: "Ulimit options (e.g., nofile=1024:1024)."
-    required: false
-outputs:
-  imageid:
-    description: "Image ID"
-    value: ${{ steps.docker-build.outputs.imageid }}
-  digest:
-    description: "Image digest"
-    value: ${{ steps.docker-build.outputs.digest }}
-  metadata:
-    description: "Build result metadata"
-    value: ${{ steps.docker-build.outputs.metadata }}
+permissions:
+  contents: read
+  actions: read
+  id-token: write
 
-runs:
-  using: composite
-  steps:
-    - name: generate image metadata
-      id: meta
-      uses: docker/metadata-action@v6.0.0
-      with:
-        images: |
-          name=${{ inputs.registry }}/${{ inputs.image }},enable=${{ inputs.image != '' && 'true' || 'false' }}
-          name=${{ inputs.registry }}/duke/${{ github.event.repository.custom_properties.appcat-product }}/${{ github.event.repository.name }},enable=${{ inputs.image == '' && github.event.repository.custom_properties.appcat-product != 'MUST_BE_CHANGED' && 'true' || 'false' }}
-          name=${{ inputs.registry }}/${{ github.event.repository.owner.login }}/${{ github.event.repository.name }},enable=${{ inputs.image == '' && github.event.repository.custom_properties.appcat-product == 'MUST_BE_CHANGED' && 'true' || 'false' }}
-        # latest here covers tag scenarios. latter "latest" covers branch scenarios.
-        flavor: |
-          latest=${{ inputs.tag_latest == 'true' && startsWith(github.ref, 'refs/tags/') && 'auto' || 'false' }}
-          suffix=${{ inputs.variant != '' && '-' || '' }}${{ inputs.variant }}
-        tags: |
-          type=raw,priority=1000,value=latest,enable=${{ inputs.tag_latest == 'true' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
-          type=raw,priority=950,value=${{ inputs.tag }},enable=${{ inputs.tag != '' && 'true' || 'false' }}
-          type=sha,priority=900,prefix=${{ inputs.tag }}-sha-,format=short,enable=${{ inputs.tag != '' && 'true' && inputs.publish-multiple-tags == 'true' || 'false' }}
-          type=sha,priority=900,prefix={{branch}}-sha-,format=short,enable=${{ inputs.tag == '' && (startsWith(github.event.ref, 'refs/heads/') && 'true' || 'false') || 'false' }}
-          type=semver,priority=600,pattern={{major}},enable=${{ inputs.tag_semver_overlap == 'true' }}
-          type=semver,priority=500,pattern={{major}}.{{minor}},enable=${{ inputs.tag_semver_overlap == 'true' }}
-          type=semver,priority=800,pattern={{major}}.{{minor}}.{{patch}}
-          type=ref,priority=900,event=branch,enable=${{ inputs.publish-multiple-tags == 'true' && github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') }}
-          type=raw,priority=900,value={{ base_ref }},enable=${{ inputs.publish-multiple-tags == 'true' && github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/') }}
-          type=ref,event=pr
+env:
+  NODE_VERSION: '16'
+  BUILD_ENV: ${{ inputs.environment }}
+  VAULT_CC_ENV: ${{ (inputs.environment == 'dev' || inputs.environment == 'sbx') && 'dt' || inputs.environment }}
+  S3_BUCKET: ${{ inputs.environment == 'dev' && 'duke-energy-workzone-ios-documentation-hub-dev' || inputs.environment == 'sbx' && 'duke-energy-workzone-ios-documentation-hub-sbx' || inputs.environment == 'qa' && 'duke-energy-workzone-ios-documentation-hub-qa' || inputs.environment == 'prod' && 'duke-energy-workzone-ios-documentation-hub-prod' }}
 
-    - name: parse metadata
-      shell: bash
-      run: |
-        set -ex
+jobs:
+  build-deploy:
+    name: Build Angular Application
+    runs-on: ${{ vars.RUNNERSET_DEFAULT }}
+    steps:
+      # checkout repository
+      - name: Checkout Repository
+        uses: actions/checkout@v6
 
-        echo "Debug: Full metadata JSON:"
-        echo "$DOCKER_METADATA_OUTPUT_JSON" | jq '.'
-        echo "Debug: First tag:"
-        jq -r '.tags[0]' <<<"$DOCKER_METADATA_OUTPUT_JSON"
+      # setup node environment
+      - name: Setup Node
+        uses: dukeenergy-corp/duke-setup-node@master
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
-        # Get the raw value only for BUILD_IMAGE_ID since we're converting it to lowercase
-        BUILD_IMAGE_ID_RAW=$(jq -r '.tags[0]' <<<"$DOCKER_METADATA_OUTPUT_JSON" | sed -r -e 's:.*/::g' -e 's:[^a-zA-Z0-9_.-]+:-:g' -e 's:-+:-:g')
+      # get aws account id and replacement values from vault
+      - name: Get AWS Account ID and Replacement values from vault
+        uses: dukeenergy-corp/duke-actions/composite/vault-fetch@master
+        with:
+          secrets: |
+            workzone/${{ env.BUILD_ENV }}/web-ios-documentation-hub-${{ env.BUILD_ENV }}/aws-account-id value | AWS_ACCOUNT_ID;
+            workzone/${{ env.BUILD_ENV }}/aws-infrastructure-${{ env.BUILD_ENV}}/ios-documentation-hub/replacement-values * | REPLACEMENT_VALUES;
 
-        # Set variables directly for those we're not changing
-        echo "BUILD_IMAGE_NAME=$(jq -r '.tags[0]' <<<"$DOCKER_METADATA_OUTPUT_JSON" | sed -r 's/:.*//g')" >> $GITHUB_ENV
-        echo "BUILD_IMAGE=$(jq -r '.tags[0]' <<<"$DOCKER_METADATA_OUTPUT_JSON")" >> $GITHUB_ENV
+      # perform angular build
+      - name: Angular Build
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --legacy-peer-deps
+          echo -e '{"env": "@DEPLOY-ENV@"}' > src/config/env.json
+          npx ng build --progress=false --verbose --configuration="$BUILD_ENV" --output-hashing=all
+          #./node_modules/@angular/cli/bin/ng.js build --progress=false --verbose --configuration="$BUILD_ENV" --output-hashing=all
 
-        # Convert BUILD_IMAGE_ID to lowercase for file naming
-        echo "BUILD_IMAGE_ID=$(echo "$BUILD_IMAGE_ID_RAW" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      # tells nginx within the static-buildpack, to redirect
+      # slash requests (/some/page, rather than #!/some/page)
+      # to the index.html file (needed for Angular frontends)
+      # also disable sending referrer to external resources.
+      - name: nginx
+        shell: bash
+        run: |
+          echo -e "pushstate: enabled\nlocation_include: noreferrer.conf" > "dist/Staticfile"
+          mkdir -p dist/nginx/conf/
+          echo -e "add_header Referrer-Policy no-referrer;" > "dist/nginx/conf/noreferrer.conf"
 
-        echo "Debug: BUILD_IMAGE_ID=$(echo "$BUILD_IMAGE_ID_RAW" | tr '[:upper:]' '[:lower:]')"
-        echo "Debug: BUILD_IMAGE=$(jq -r '.tags[0]' <<<"$DOCKER_METADATA_OUTPUT_JSON")"
+      # use replacement values from vault to update config files with correct values
+      - name: Apply Replacement Values
+        run: |
+          # Create replacement values from vault data
+          # Use env var directly instead of shell interpolation to avoid syntax errors
+          echo "$REPLACEMENT_VALUES" > vault_data.json
+          echo "Vault data received:"
+          cat vault_data.json
 
-    - name: secrets -> environment variables
-      if: ${{ inputs.username != '' }}
-      shell: bash
-      env:
-        DOCKER_USERNAME: ${{ inputs.username }}
-        DOCKER_PASSWORD: ${{ inputs.password }}
-      run: |
-        set -e
+          # Debug: Check if we have valid JSON and list keys
+          echo "Replacement value keys (jq):"
+          jq -r 'keys[]' vault_data.json 2>/dev/null || echo "jq failed or vault_data.json not valid JSON"
 
-        echo "::add-mask::${DOCKER_USERNAME}"
-        echo "DOCKER_USERNAME=${DOCKER_USERNAME}" >> $GITHUB_ENV
-        echo "DOCKER_PASSWORD=${DOCKER_PASSWORD}" >> $GITHUB_ENV
+          # Function to insert env variable
+          insert_env_variable() {
+            echo "replacing $1 with $2"
+            find "." -maxdepth 4 -type f -name "*.js" -exec sed -r -i "s>$1>$2>g" "{}" \; 2>/dev/null || true
+            find "." -maxdepth 4 -type f -name "*.json" -exec sed -r -i "s>$1>$2>g" "{}" \; 2>/dev/null || true
+            find "." -maxdepth 4 -type f -name "*.ts" -exec sed -r -i "s>$1>$2>g" "{}" \; 2>/dev/null || true
+          }
 
-    - name: fetch secrets
-      if: ${{ inputs.username == '' && !contains(inputs.registry, 'amazonaws.com')}}
-      uses: dukeenergy-corp/duke-actions/composite/vault-fetch@master
-      with:
-        secrets: |
-          github-global/data/nexus-write username | DOCKER_USERNAME;
-          github-global/data/nexus-write password | DOCKER_PASSWORD
+          if [ -f vault_data.json ]; then
+            while IFS="=" read -r key value; do
+              if [ ! -z "$key" ]; then
+                insert_env_variable "$key" "$value"
+              fi
+            done < <(jq -r '(.data // .) | to_entries|map("\(.key)=\(.value)")|.[]' vault_data.json 2>/dev/null)
+          else
+            echo "No vault_data.json found, skipping token replacement"
+          fi
 
-    - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
+          # Clean up temp file
+          rm -f vault_data.json
 
-    - name: docker login
-      uses: docker/login-action@v4.1.0
-      with:
-        registry: ${{ inputs.registry }}
-        username: ${{ env.DOCKER_USERNAME }}
-        password: ${{ env.DOCKER_PASSWORD }}
+          echo "Token replacement completed"
 
-    - name: docker build
-      uses: docker/build-push-action@v7.0.0
-      id: docker-build
-      env:
-        DOCKER_BUILD_SUMMARY: false
-        DOCKER_BUILD_RECORD_UPLOAD: false
-      with:
-        annotations: |
-          ${{ env.DOCKER_METADATA_OUTPUT_ANNOTATIONS }}
-          ${{ inputs.annotations }}
-        attests: ${{ inputs.attests }}
-        build-args: ${{ inputs.build-args }}
-        build-contexts: ${{ inputs.build-contexts }}
-        context: ${{ inputs.context }}
-        cache-to: ${{ inputs.cache-to }}
-        file: ${{ inputs.file }}
-        labels: |
-          ${{ env.DOCKER_METADATA_OUTPUT_LABELS }}
-          ${{ inputs.labels }}
-        load: true
-        provenance: ${{ inputs.provenance }}
-        push: ${{ inputs.push }}
-        secrets: ${{ inputs.secrets }}
-        secret-envs: ${{ inputs.secret-envs }}
-        sbom: ${{ inputs.sbom }}
-        tags: ${{ env.DOCKER_METADATA_OUTPUT_TAGS }}
-        target: ${{ inputs.target }}
-        ulimit: ${{ inputs.ulimit }}
-
-    - name: export image for scan
-      shell: bash
-      run: |
-        set -ex
-
-        docker images -a
-        docker save -o "image-${{ env.BUILD_IMAGE_ID }}.tar" ${{ env.BUILD_IMAGE }}
-
-    - name: trivy security scan
-      uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 #version v0.34.2 of trivy-action
-      env:
-        TRIVY_DB_REPOSITORY: nexus-docker-cne.ci.duke-energy.app/aquasecurity/trivy-db
-        TRIVY_JAVA_DB_REPOSITORY: nexus-docker-cne.ci.duke-energy.app/aquasecurity/trivy-java-db
-      with:
-        version: v0.69.2
-        input: image-${{ env.BUILD_IMAGE_ID }}.tar
-        scan-type: image
-        image-ref: ${{ env.BUILD_IMAGE }}
-        ignore-unfixed: true
-        format: sarif
-        output: trivy-results.sarif
-        severity: CRITICAL
-        limit-severities-for-sarif: false
-        skip-dirs: |
-          /root/.ssh/id_ed25519
-
-    - name: upload trivy results to github
-      uses: github/codeql-action/upload-sarif@v4
-      with:
-        sarif_file: trivy-results.sarif
-
-    - name: publish build summary
-      if: ${{ inputs.push == 'true' }}
-      shell: bash
-      run: |
-        echo "| Image Refs |" >> $GITHUB_STEP_SUMMARY
-        echo "| ---------- |" >> $GITHUB_STEP_SUMMARY
-        jq -r '.tags[]' <<<"$DOCKER_METADATA_OUTPUT_JSON" | sed -r 's:-local::g' | while read -r IMAGE_REF;do
-          echo "| \`${IMAGE_REF}\` |" >> $GITHUB_STEP_SUMMARY
-        done
-
-        jq -r '.tags[]' <<<"$DOCKER_METADATA_OUTPUT_JSON" | sed -r 's:-local::g' | while read -r IMAGE_REF;do
-          echo "| \`${IMAGE_REF}@${{ steps.docker-build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
-        done
+      # sync build artifacts to s3 bucket
+      - name: Copy to AWS S3
+        uses: dukeenergy-corp/duke-actions/composite/aws-s3-sync@master
+        with:
+          # required for aws-login
+          aws-account-id: ${{ env.AWS_ACCOUNT_ID }}
+          vault-environment: ${{ env.VAULT_CC_ENV }}
+          working_directory: ${{ env.GITHUB_WORKSPACE }}
+          source: dist/
+          destination: 's3://${{ env.S3_BUCKET }}/'
+          delete: true
