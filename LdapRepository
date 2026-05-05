@@ -1,116 +1,36 @@
-#!/bin/bash -e
-cd ../
+name: Formula Web Build and Deploy
 
-sudo duke-install gcloud=421.0.0
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        type: choice
+        required: true
+        options: [dev, qa, prod]
+      operation:
+        description: "Operation to perform"
+        type: choice
+        required: true
+        default: "deploy"
+        options: [build, deploy, rollback, undeploy]
+      rollback_commit:
+        description: "Commit SHA to rollback to (only for rollback operation)"
+        type: string
+        required: false
 
-echo "$SERVICE_ACCOUNT_CREDENTIALS" > serviceaccountcreds.json
-
-
-gcloud auth activate-service-account "${SERVICE_ACCOUNT_NAME}" --key-file=serviceaccountcreds.json --project="${API_ORG}"
-export TOKEN=$(gcloud auth print-access-token)
-
-if [ "$API_TYPE" = "sharedflow" ]; then
-    api_type_mgmt_folder="sharedflows"
-    api_type_dir="sharedflowbundle"
-else
-    api_type_mgmt_folder="apis"
-    api_type_dir="apiproxy"
-fi
-
-if [ ! -z "${API_NAME_VER}" ]; then
-    API_NAME="${API_NAME}-v1"
-fi
-if [ -z "${GH_PRIVATE_KEY}" ]; then
-    log error "error, GH_PRIVATE_KEY is empty"
-fi
-
-log info "copying ssh key"
-mkdir -p ~/.ssh
-echo "${GH_PRIVATE_KEY}" > ~/.ssh/id_rsa_api
-chmod 600 ~/.ssh/id_rsa_api
-ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-
-log info "calling apigee ${API_ORG} to fetch proxy ${API_NAME}"
-
-function req {
-    (curl \
-        -w "RESPONSE CODE: %{response_code}" \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${TOKEN}" \
-        -s "https://apigee.googleapis.com${1}")
-}
-
-# Pull down the API proxy from Apigee using ${API_ENV} revision
-revision_results=$(req "/v1/organizations/${API_ORG}/environments/${API_ENV}/${api_type_mgmt_folder}/${API_NAME}/deployments")
-if [ "$?" != 0 ]; then
-    log error "error fetching results: ${revision_results}"
-fi
-
-split_http_response "$revision_results"
-
-if [ "$httpStatus" -eq 200 ]; then
-    log success "$httpStatus OK\n"; echo -e "$httpBody" | jq '.'
-else
-  log error "Unexpected response: $httpStatus\n" "$httpBody" | jq '.' && exit 1
-fi
-
-# keeping for history
-# proxy_revision=$(echo "$httpBody" | jq '.revision|=sort_by(.name)' | jq -r 'select(.revision[-1] != null) | .revision[-1].name')
-
-proxy_revision=$(echo "$httpBody" | jq -r '.deployments[.0].revision')
-
-# clean up
-export test=$(echo "$httpBody" | jq -r '.deployments[.0].revision')
-echo "testing $test"
-echo "rev is: $proxy_revision"
-echo "httpstatus is $httpStatus"
-echo "http body is $httpBody"
-# ##
-
-if [ -z "$proxy_revision" ];then
-    log error "unknown revision. Is the api proxy deployed to ${API_ENV}?"
-fi
-
-log info "downloading bundle of revision ${proxy_revision} to '${API_NAME}.zip'"
-req "/v1/organizations/${API_ORG}/${api_type_mgmt_folder}/${API_NAME}/revisions/${proxy_revision}?format=bundle" > "${API_NAME}.zip"
-
-# Clone the API repo to compare what was deployed to Apigee in ${api_env}
-mkdir source-repo-out
-cp -a "${SOURCE_REPO}"/* ./source-repo-out
-unzip "${API_NAME}.zip"
-ls -la
-ls "${SOURCE_REPO}"
-ls source-repo-out
-
-cd source-repo-out
-mkdir -p $api_type_dir
-ls $api_type_dir
-
-cp -r "../${api_type_dir}/" .
-
-tree "${SOURCE_REPO}"
-tree ../source-repo-out
-
-cd "${SOURCE_REPO}"
-
-set +e
-git rm -r ${api_type_dir}/*
-set -e
-
-cp -r "../${api_type_dir}/" .
-
-set -x
-git config --global user.email "$API_EDGE_EMAIL"
-git config --global user.name "$API_EDGE_USERNAME"
-
-git fetch --unshallow
-git config --global push.default simple
-git add .
-
-# Intention is to commit diff directly to develop branch in code repo
-git commit -m "Add ${API_NAME} contents for Apigee" || /bin/true
-
-set +x
-log info "Commit return code = $?"
-git remote set-url origin git@github.com:"${REPO_URL_SLUG}".git
-GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_api -o IdentitiesOnly=yes -F /dev/null' git push
+jobs:
+  instamod:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      security-events: write
+    uses: dukeenergy-corp/duke-actions/.github/workflows/reusable-instamod.yaml@master
+    with:
+      application_name: formula-web
+      values-files:  ci/manifests/values.yaml
+      dockerfile-path: ci/Dockerfile
+      environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || '' }}
+      operation: ${{ github.event_name == 'workflow_dispatch' && inputs.operation || 'deploy' }}
+      rollback_commit: ${{ inputs.rollback_commit || '' }}
