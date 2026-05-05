@@ -1,125 +1,29 @@
-name: WorkZone iOS Documentation Hub Build Deploy
+# reference repo: https://bitbucketp.duke-energy.com/projects/PET/repos/helm-pcf-compat/browse
+config-server-compat:
+  enabled: false
+  vault:
+    enabled: false
 
-on:
-  # push:
-  #   branches:
-  #     - develop
-  
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Target environment for deployment'
-        required: true
-        type: choice
-        options:
-          - 'sbx'
-          - 'dev'
-          - 'qa'
-          - 'prod'
+healthcheck:
+  type: "tcp" # process|http|tcp.
+#   path: "/" # optional health check path, if http (e.g. /actuator/health).
 
-# Cancels any workflows currently running with the same name and branch
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}
-  cancel-in-progress: true
 
-permissions:
-  contents: read
-  actions: read
-  id-token: write
-
-env:
-  NODE_VERSION: '16'
-  BUILD_ENV: ${{ inputs.environment }}
-  VAULT_CC_ENV: ${{ (inputs.environment == 'dev' || inputs.environment == 'sbx') && 'dt' || inputs.environment }}
-  S3_BUCKET: ${{ inputs.environment == 'dev' && 'duke-energy-workzone-ios-documentation-hub-dev' || inputs.environment == 'sbx' && 'duke-energy-workzone-ios-documentation-hub-sbx' || inputs.environment == 'qa' && 'duke-energy-workzone-ios-documentation-hub-qa' || inputs.environment == 'prod' && 'duke-energy-workzone-ios-documentation-hub-prod' }}
-
-jobs:
-  build-deploy:
-    name: Build Angular Application
-    runs-on: ${{ vars.RUNNERSET_DEFAULT }}
-    steps:
-      # checkout repository
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      # setup node environment
-      - name: Setup Node
-        uses: dukeenergy-corp/duke-setup-node@master
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      # get aws account id and replacement values from vault
-      - name: Get AWS Account ID and Replacement values from vault
-        uses: dukeenergy-corp/duke-actions/composite/vault-fetch@master
-        with:
-          secrets: |
-            workzone/${{ env.BUILD_ENV }}/web-ios-documentation-hub-${{ env.BUILD_ENV }}/aws-account-id value | AWS_ACCOUNT_ID;
-            workzone/${{ env.BUILD_ENV }}/aws-infrastructure-${{ env.BUILD_ENV}}/ios-documentation-hub/replacement-values * | REPLACEMENT_VALUES;
-
-      # perform angular build
-      - name: Angular Build
-        run: |
-          rm -rf node_modules package-lock.json
-          npm install --legacy-peer-deps
-          echo -e '{"env": "@DEPLOY-ENV@"}' > src/config/env.json
-          npx ng build --progress=false --verbose --configuration="$BUILD_ENV" --output-hashing=all
-          #./node_modules/@angular/cli/bin/ng.js build --progress=false --verbose --configuration="$BUILD_ENV" --output-hashing=all
-
-      # tells nginx within the static-buildpack, to redirect
-      # slash requests (/some/page, rather than #!/some/page)
-      # to the index.html file (needed for Angular frontends)
-      # also disable sending referrer to external resources.
-      - name: nginx
-        shell: bash
-        run: |
-          echo -e "pushstate: enabled\nlocation_include: noreferrer.conf" > "dist/Staticfile"
-          mkdir -p dist/nginx/conf/
-          echo -e "add_header Referrer-Policy no-referrer;" > "dist/nginx/conf/noreferrer.conf"
-
-      # use replacement values from vault to update config files with correct values
-      - name: Apply Replacement Values
-        run: |
-          # Create replacement values from vault data
-          # Use env var directly instead of shell interpolation to avoid syntax errors
-          echo "$REPLACEMENT_VALUES" > vault_data.json
-          echo "Vault data received:"
-          cat vault_data.json
-
-          # Debug: Check if we have valid JSON and list keys
-          echo "Replacement value keys (jq):"
-          jq -r 'keys[]' vault_data.json 2>/dev/null || echo "jq failed or vault_data.json not valid JSON"
-
-          # Function to insert env variable
-          insert_env_variable() {
-            echo "replacing $1 with $2"
-            find "." -maxdepth 4 -type f -name "*.js" -exec sed -r -i "s>$1>$2>g" "{}" \; 2>/dev/null || true
-            find "." -maxdepth 4 -type f -name "*.json" -exec sed -r -i "s>$1>$2>g" "{}" \; 2>/dev/null || true
-            find "." -maxdepth 4 -type f -name "*.ts" -exec sed -r -i "s>$1>$2>g" "{}" \; 2>/dev/null || true
-          }
-
-          if [ -f vault_data.json ]; then
-            while IFS="=" read -r key value; do
-              if [ ! -z "$key" ]; then
-                insert_env_variable "$key" "$value"
-              fi
-            done < <(jq -r '(.data // .) | to_entries|map("\(.key)=\(.value)")|.[]' vault_data.json 2>/dev/null)
-          else
-            echo "No vault_data.json found, skipping token replacement"
-          fi
-
-          # Clean up temp file
-          rm -f vault_data.json
-
-          echo "Token replacement completed"
-
-      # sync build artifacts to s3 bucket
-      - name: Copy to AWS S3
-        uses: dukeenergy-corp/duke-actions/composite/aws-s3-sync@master
-        with:
-          # required for aws-login
-          aws-account-id: ${{ env.AWS_ACCOUNT_ID }}
-          vault-environment: ${{ env.VAULT_CC_ENV }}
-          working_directory: ${{ env.GITHUB_WORKSPACE }}
-          source: dist/
-          destination: 's3://${{ env.S3_BUCKET }}/'
-          delete: true
+ingress:
+  hosts:
+    - host: forms.duke-energy.com
+      paths:
+        - path: / 
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: tls-forms.duke-energy.com
+      host:
+        - forms.duke-energy.com       
+    
+resources:
+  requests:
+    # cpu: 250m
+    memory: 1024Mi
+  limits:
+    # cpu: 500m
+    memory: 1024Mi
